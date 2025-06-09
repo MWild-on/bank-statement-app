@@ -3,6 +3,32 @@ import pandas as pd
 import re
 from io import BytesIO
 from datetime import datetime
+from natasha import MorphVocab, NamesExtractor
+
+# ===== Простая авторизация =====
+CREDENTIALS = {
+    "Mariam": "Mariam4321",
+}
+
+def login():
+    st.title("🔐 Авторизация")
+    with st.form("login_form"):
+        username = st.text_input("Логин")
+        password = st.text_input("Пароль", type="password")
+        submitted = st.form_submit_button("Войти")
+        if submitted:
+            if username in CREDENTIALS and CREDENTIALS[username] == password:
+                st.session_state["auth"] = True
+                st.session_state["user"] = username
+            else:
+                st.error("Неверный логин или пароль")
+
+if "auth" not in st.session_state or not st.session_state["auth"]:
+    login()
+    st.stop()
+
+morph_vocab = MorphVocab()
+names_extractor = NamesExtractor(morph_vocab)
 
 # ===== Вспомогательные функции =====
 
@@ -20,62 +46,110 @@ def extract_is_from_bailiff(text):
 
 def extract_court_order_number(text):
     text = str(text).lower()
+    priority_match = re.search(r'\b(вс|фс)\s?(\d{9})\b', text)
+    if priority_match:
+        return f"{priority_match.group(1).upper()} {priority_match.group(2)}"
 
-    # Вариант 1: "Судебный приказ" или его сокращения
-    match1 = re.search(r'(?:судебный приказ|суд\.? приказ|с/пр)\s*(?:№|:)?\s*([\d\-\/]+)', text)
-    if match1:
-        return match1.group(1)
+    match_id_direct = re.search(r'\bид\s+([\d\-]+/\d{4}(?:-\d{1,3})?)\b', text)
+    if match_id_direct:
+        return match_id_direct.group(1)
 
+    patterns = [
+        r'№[а-яa-z]+[\d\-]*-([\d\-]+/\d{4}(?:-\d{1,3})?)',
+        r'(?:судебный приказ|суд\.? приказ|с/пр)[^\d]{0,3}([\d]{1,2}-\d{1,4}-\d{1,5}/\d{4})',
+        r'(?:судебный приказ|суд\.? приказ|с/пр)\s*(?:№|:)?\s*([\d\-/]+)',
+        r'взыскание по ид от \d{2}\.\d{2}\.\d{4} ?№([\d\-/]+)',
+        r'по и/д\s*№?\s*([\d\-/]+)',
+        r'\bи/д\s*№?\s*([\d\-/]+)',
+        r'(?:по\s+)?и/л\s*(?:№|n)?\s*([\d\-/]+)',
+        r'\b(?:ид n|ид|n)\s*(?:№|n)?\s*([\d\-]+/\d{4}(?:-\d{1,3})?)\b',
+        r'№\s*([\d\-]+/\d{4}(?:-\d{1,3})?)',
+        r'суд\.пр\s*([\d\-]+/[\d\-]+)',
+        r'исполнительный лист\s*([\d\-]+/\d{4})',
+        r'\bил\s+([\d\-]+/\d{4})',
+        r'и/л\s*(?:№|n)?\s*([\w\-]+/\d{4})',
+        r'по документу\s+([\d\-]+/\d{4})',
+        r'с/п\s*([\д\-]+/\d{4})',
+    ]
 
-    # Вариант 2: "Взыскание по ИД от <дата> №..."
-    match2 = re.search(r'взыскание по ид от \d{2}\.\d{2}\.\d{4} ?№([\d\-\/]+)', text)
-    if match2:
-        return match2.group(1)
-
-    # Вариант 3: "и/д" + номер
-    match3 = re.search(r'по и/д\s*№?\s*([\d\-\/]+)', text)
-    if match3:
-        return match3.group(1)
-
-    # Вариант 4: "по и/л" + номер
-    match4 = re.search(r'по и/л\s*([\d\-\/]+)', text)
-    if match4:
-        return match4.group(1)
-
-        
-    # Вариант 5: "ид", "ид n", или "n", затем где-то в тексте номер с годом
-    match5 = re.search(r'(?:ид n|ид|n)\s*№?\s*.*?([\d\-]+/(?:1[0-9]|2[0-9]|30|201[0-9]|202[0-9]|2030))', text)
-    if match5:
-        return match5.group(1)
-
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if match:
+            value = match.group(1)
+            if len(value.strip()) < 5:
+                continue
+            before = text[:match.start()]
+            if re.search(r'(ип|\bисп\w*)\s*$', before.strip()[-20:]):
+                continue
+            if re.search(r'-ип$', value):
+                continue
+            return value
 
     return ""
 
-    
+def extract_court_order_date(text, court_number):
+    text = str(text).lower()
+    court_number = court_number.strip().lower()
+    if not court_number or len(court_number) < 5:
+        return ""
+    text_clean = re.sub(r'[()\[\]]', ' ', text)
+    match_pos = text_clean.find(court_number)
+    if match_pos == -1:
+        return ""
+    context = text_clean[max(0, match_pos - 50): match_pos + 50]
+    date_patterns = [
+        r'от\s*(\d{2}\.\d{2}\.\d{4})',
+        r'от\s*(\d{4}-\d{2}-\d{2})',
+        r'(\d{2}\.\d{2}\.\d{4})',
+        r'(\d{4}-\d{2}-\d{2})'
+    ]
+    for pattern in date_patterns:
+        match = re.search(pattern, context)
+        if match:
+            return match.group(1)
+    return ""
+
 def extract_ip_number(text):
     text = str(text).lower()
-
-    # Вариант 1: ИП с дефисом и годом
-    match1 = re.search(r'(?:и/п|ип)[ №:]*([\d\-]+/(?:20|2[1-9]|30|201[0-9]|202[0-9]|2030))\b', text)
+    match1 = re.search(r'(?:и/п|ип)?[ №:]*([0-9]{4,8}/[0-9]{2}/[0-9]{4,8}-ип)\b', text)
     if match1:
         return match1.group(1)
-
-    # Вариант 2: 6+ цифр (старый простой)
-    match2 = re.search(r'(?:и/п|ип)[ №:]*([0-9]{6,})', text)
+    match2 = re.search(r'(?:и/п|ип)?[ №:]*([0-9]{4,8}/[0-9]{2}/[0-9]{4,8})\b', text)
     if match2:
-        return match2.group(1)
-
-    # Вариант 3: формат типа 12345/24/00001 с -ип или без него
-    match3 = re.search(r'(\d{4,6}/\d{2}/\d{4,6})(?:-ип)?', text)
+        before = text[:match2.start()]
+        if "ид" not in before[-20:]:
+            return match2.group(1)
+    match3 = re.search(r'\(ип\s+([\w\-\/]+)', text)
     if match3:
         return match3.group(1)
-
     return ""
 
+def extract_fio(text):
+    text = str(text)
+    patterns = [
+        r'\bс\s+([А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё]+)',
+        r'\bдолг[а]?:\s*([А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё]+)',
+        r'\bдолжника:\s*([А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё]+)',
+        r'с должника\s+([А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё]+)',
+        r'долга взыскателю\s*:\s*([А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё]+)',
+        r'\bс:\s*([А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё]+)',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            return match.group(1).title().strip()
+    matches = list(names_extractor(text))
+    if matches:
+        fact = matches[0].fact
+        fio = ' '.join(filter(None, [fact.last, fact.first, fact.middle]))
+        if len(fio) >= 10 and len(fio.split()) >= 3:
+            return fio.strip()
+    return ""
 
 # ===== Обработка данных =====
 
 def process_bank_statement(df):
+    df = df[pd.to_numeric(df["Сумма по кредиту"], errors="coerce") > 0].copy()
     result = pd.DataFrame()
     result["CaseID"] = ""
     result["TransactionType"] = "Оплата"
@@ -88,10 +162,10 @@ def process_bank_statement(df):
     result["PaymentProvider"] = ""
     result["IsFromBailiff"] = df["Счет"].apply(extract_is_from_bailiff)
     result["CourtOrderNumber"] = df["Назначение платежа"].apply(extract_court_order_number)
-    result["№ документа"] = df["№ документа"]
+    result["Дата приказа"] = df.apply(lambda row: extract_court_order_date(row["Назначение платежа"], extract_court_order_number(row["Назначение платежа"])), axis=1)
     result["Номер ИП"] = df["Назначение платежа"].apply(extract_ip_number)
-    #result["ФИО"] = df["Счет"].apply(extract_fio_from_account)
-    result["Назначение платежа"] = df["Назначение платежа"]  # <-- добавлено
+    result["ФИО"] = df["Назначение платежа"].apply(extract_fio)
+    result["Назначение платежа"] = df["Назначение платежа"]
     return result
 
 # ===== Интерфейс Streamlit =====
@@ -99,47 +173,15 @@ def process_bank_statement(df):
 st.set_page_config(page_title="Обработка выписки", layout="centered")
 st.title("📄 Анализ банковской выписки")
 
-import os
-import json
-
-# Путь к истории
-history_file = "history.json"
-
-# Загрузка истории, если она есть
-history = []
-if os.path.exists(history_file):
-    with open(history_file, "r") as f:
-        try:
-            history = json.load(f)
-        except:
-            history = []
-
-# Вывод истории на главной (всегда)
-st.markdown("### 🧾 История обработок (последние 5):")
-if history:
-    for record in history[-5:][::-1]:
-        court = record.get("court_count", record.get("count", 0))  # поддержка старого 'count'
-        ip = record.get("ip_count", 0)
-
-        st.markdown(
-            f"• **{record['timestamp']}** — "
-            f"`CourtOrderNumber`: **{court}**, "
-            f"`Номер ИП`: **{ip}**, "
-
-        )
-else:
-    st.markdown("_История пока пуста_")
-
+# === История и подсчёты закомментированы ===
+# import os, json ...
+# st.markdown("### 🧾 История обработок (последние 5):") ...
 
 uploaded_file = st.file_uploader("Загрузите файл выписки (Excel)", type=["xlsx", "xls"])
 
 if uploaded_file:
-
     try:
-        # Чтение с правильного места, ручная установка заголовков
         df_raw = pd.read_excel(uploaded_file, skiprows=2)
-
-        # Назначим имена колонок вручную
         df_raw.columns.values[1] = "Дата проводки"
         df_raw.columns.values[4] = "Счет"
         df_raw.columns.values[6] = "Дебет"
@@ -149,36 +191,18 @@ if uploaded_file:
         df_raw.columns.values[20] = "Назначение платежа"
 
         df = df_raw.copy()
-
         st.success("Файл успешно загружен и распознан!")
         df_result = process_bank_statement(df)
-        # Подсчёт записей с CourtOrderNumber
-        count_valid_court_numbers = df_result["CourtOrderNumber"].astype(str).str.strip().ne("").sum()
-        st.info(f"🔎 Найдено записей с CourtOrderNumber: **{count_valid_court_numbers}**")
-        # Подсчёт записей с Номером ИП
-        count_valid_ip_number = df_result["Номер ИП"].astype(str).str.strip().ne("").sum()
-        st.info(f"🔎 Найдено записей с Номер ИП: **{count_valid_ip_number}**")
 
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.subheader("✅ Результат")
+        with col2:
+            output = BytesIO()
+            df_result.to_excel(output, index=False, engine='openpyxl')
+            st.download_button("📥 Скачать результат (Excel)", data=output.getvalue(), file_name="результат.xlsx")
 
-        # Сохраняем результат в историю
-        history.append({
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "court_count": int(count_valid_court_numbers),
-            "ip_count": int(count_valid_ip_number)
-
-        })
-
-        with open(history_file, "w") as f:
-            json.dump(history[-20:], f, ensure_ascii=False, indent=2)
-
-       
-        st.subheader("✅ Результат")
         st.dataframe(df_result)
-
-        output = BytesIO()
-        df_result.to_excel(output, index=False, engine='openpyxl')
-        st.download_button("📥 Скачать результат (Excel)", data=output.getvalue(), file_name="результат.xlsx")
 
     except Exception as e:
         st.error(f"Ошибка при обработке: {e}")
-
