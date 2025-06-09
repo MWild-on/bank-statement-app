@@ -3,7 +3,6 @@ import pandas as pd
 import re
 from io import BytesIO
 from datetime import datetime
-from natasha import MorphVocab, NamesExtractor
 
 # ===== Простая авторизация =====
 CREDENTIALS = {
@@ -27,8 +26,6 @@ if "auth" not in st.session_state or not st.session_state["auth"]:
     login()
     st.stop()
 
-morph_vocab = MorphVocab()
-names_extractor = NamesExtractor(morph_vocab)
 
 # ===== Вспомогательные функции =====
 
@@ -138,13 +135,8 @@ def extract_fio(text):
         match = re.search(pattern, text, flags=re.IGNORECASE)
         if match:
             return match.group(1).title().strip()
-    matches = list(names_extractor(text))
-    if matches:
-        fact = matches[0].fact
-        fio = ' '.join(filter(None, [fact.last, fact.first, fact.middle]))
-        if len(fio) >= 10 and len(fio.split()) >= 3:
-            return fio.strip()
     return ""
+
 
 # ===== Обработка данных =====
 
