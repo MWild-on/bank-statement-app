@@ -5,7 +5,7 @@ from io import BytesIO
 from datetime import datetime
 
 def run():
-
+    #KATE AND DAD IS THE BEST
     # ===== Вспомогательные функции =====
     
     def extract_bank_account(text):
