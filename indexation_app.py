@@ -292,7 +292,7 @@ def generate_pdf_bytes_for_debt(
     def draw_line(text: str = "", bold: bool = False):
         nonlocal y
         c.setFont(FONT_NAME, 12 if bold else 10)
-        max_chars = 70
+        max_chars = 80
         lines = [text[i:i + max_chars] for i in range(0, len(text), max_chars)] or [""]
         for ln in lines:
             c.drawString(x_margin, y, ln)
@@ -533,16 +533,6 @@ def run():
                 )
 
                 st.info(f"Фактическая крайняя дата расчёта: {effective_cutoff}")
-
-                st.subheader("Результат (фрагмент таблицы)")
-                cols_to_show = [
-                    col for col in main_df.columns
-                    if col in ("Рег номер", "Сумма индексации (расчёт)", "Сумма платежей с декабря 2024")
-                ]
-                if cols_to_show:
-                    st.dataframe(main_df[cols_to_show].head(50))
-                else:
-                    st.dataframe(main_df.head(50))
 
                 st.download_button(
                     label="Скачать Excel с индексацией",
