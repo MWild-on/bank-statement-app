@@ -28,10 +28,12 @@ def fmt_money(value: Decimal | float | int) -> str:
     if value.copy_abs() < Decimal("0.005"):
         value = Decimal("0.00")
     value = value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    s = f"{value:.2f}"
-    parts = s.split(".")
-    parts[0] = "{:,}".format(int(parts[0])).replace(",", " ")
-    return f"{parts[0]}.{parts[1]} руб."
+
+    # формат с пробелами и запятой: 12345.67 -> "12 345,67"
+    s = f"{value:,.2f}"          # "12,345.67"
+    s = s.replace(",", " ").replace(".", ",")
+    return f"{s} руб."
+
 
 
 def fmt_date(d: dt.date | None) -> str:
@@ -277,7 +279,7 @@ def generate_pdf_bytes_for_debt(
 ) -> bytes:
     """
     Возвращает байты PDF для одного долга.
-    Шаблон максимально приближен к образцу из consultant.ru.
+    Шаблон максимально приближен к образцу из DOCX.
     """
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
@@ -290,7 +292,6 @@ def generate_pdf_bytes_for_debt(
     def draw_line(text: str = "", bold: bool = False):
         nonlocal y
         c.setFont(FONT_NAME, 12 if bold else 10)
-        # простой перенос длинных строк
         max_chars = 95
         lines = [text[i:i + max_chars] for i in range(0, len(text), max_chars)] or [""]
         for ln in lines:
@@ -300,10 +301,23 @@ def generate_pdf_bytes_for_debt(
                 c.showPage()
                 y = height - 20 * mm
 
+    def fmt_plain(value: Decimal | float | int) -> str:
+        """Деньги без 'руб.', чтобы писать формулу X - Y = Z."""
+        if not isinstance(value, Decimal):
+            value_dec = Decimal(str(value))
+        else:
+            value_dec = value
+        if value_dec.copy_abs() < Decimal("0.005"):
+            value_dec = Decimal("0.00")
+        value_dec = value_dec.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        s = f"{value_dec:,.2f}"
+        s = s.replace(",", " ").replace(".", ",")
+        return s
+
     order_date = pd.to_datetime(main_row["Дата вынесения приказа"]).date()
     base_debt = Decimal(str(main_row["Сумма платежей с декабря 2024"]))
 
-    # --------- Шапка, как в образце ---------
+    # --------- Шапка ---------
 
     draw_line("Расчёт индексации присуждённых денежных сумм", bold=True)
     draw_line("")
@@ -322,7 +336,7 @@ def generate_pdf_bytes_for_debt(
     draw_line(f"Сумма индексации: {fmt_money(total_indexation)}")
     draw_line("")
 
-    # --------- Блок «Порядок расчёта» ---------
+    # --------- Порядок расчёта ---------
 
     draw_line("Порядок расчёта:", bold=True)
     draw_line(
@@ -331,7 +345,7 @@ def generate_pdf_bytes_for_debt(
     )
     draw_line("")
 
-    # --------- Первый период (общая индексация до первого платежа) ---------
+    # --------- Индексация за первый период ---------
 
     if periods:
         first = periods[0]
@@ -349,33 +363,38 @@ def generate_pdf_bytes_for_debt(
         )
         draw_line("")
 
-    # --------- Частичные оплаты ---------
+    # --------- Частичные оплаты / последующие периоды ---------
 
-    # нумерация «Частичная оплата долга #1, #2, ...»
-    # идём по всем периодам; для визуала используем тот же период,
-    # что и в расчёте (мы НЕ меняем логику расчёта).
     for i, p in enumerate(periods, start=1):
-        # если нет платежа (хвост без оплаты) – показываем как отдельный период
-        has_payment = p["payment_date"] is not None and p["payment_amount"] != Decimal("0.00")
+        draw_line(f"Частичная оплата долга #{i}", bold=True)
 
-        if has_payment:
-            draw_line(f"Частичная оплата долга #{i}", bold=True)
+        if p["payment_date"] is not None and p["payment_amount"] != Decimal("0.00"):
             draw_line(
                 f"Платёж #{i}: дата {fmt_date(p['payment_date'])}, "
                 f"сумма {fmt_money(p['payment_amount'])}"
             )
         else:
-            draw_line(f"Период без платежа #{i}", bold=True)
+            draw_line("Платёж в данном периоде отсутствует")
 
         draw_line(
             f"Период индексации: {fmt_date(p['period_start'])} – "
             f"{fmt_date(p['period_end'])}"
         )
 
-        # формула «остаток долга на начало периода = ...» максимально похожа на образец
-        draw_line(
-            f"Остаток долга на начало периода: {fmt_money(p['debt_before'])}"
-        )
+        # Формула, как в образце: X - Y = Z
+        if p["payment_amount"] is not None and p["payment_amount"] != Decimal("0.00"):
+            formula_line = (
+                f"Остаток долга на начало периода: "
+                f"{fmt_plain(p['debt_before'])} - {fmt_plain(p['payment_amount'])} "
+                f"= {fmt_plain(p['debt_after_payment'])} руб."
+            )
+        else:
+            formula_line = (
+                f"Остаток долга на начало периода: "
+                f"{fmt_plain(p['debt_before'])} руб."
+            )
+
+        draw_line(formula_line)
         draw_line(
             f"Остаток долга после периода: {fmt_money(p['debt_after_payment'])}"
         )
@@ -384,7 +403,7 @@ def generate_pdf_bytes_for_debt(
         )
         draw_line("")
 
-    # --------- Итоговая строка ---------
+    # --------- Итог ---------
 
     draw_line(
         f"Итоговая индексация = {fmt_money(total_indexation)}",
@@ -395,6 +414,7 @@ def generate_pdf_bytes_for_debt(
     c.save()
     buffer.seek(0)
     return buffer.getvalue()
+
 
 
 
