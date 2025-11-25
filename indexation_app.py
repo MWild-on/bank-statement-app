@@ -277,7 +277,7 @@ def generate_pdf_bytes_for_debt(
 ) -> bytes:
     """
     Возвращает байты PDF для одного долга.
-    Имя файла потом будет <Рег номер>.pdf в ZIP.
+    Шаблон максимально приближен к образцу из consultant.ru.
     """
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
@@ -287,12 +287,12 @@ def generate_pdf_bytes_for_debt(
     y = height - 20 * mm
     line_step = 6 * mm
 
-    def draw_line(text: str, bold: bool = False):
+    def draw_line(text: str = "", bold: bool = False):
         nonlocal y
         c.setFont(FONT_NAME, 12 if bold else 10)
-        # простейший перенос строки, если очень длинно
+        # простой перенос длинных строк
         max_chars = 95
-        lines = [text[i:i+max_chars] for i in range(0, len(text), max_chars)] or [""]
+        lines = [text[i:i + max_chars] for i in range(0, len(text), max_chars)] or [""]
         for ln in lines:
             c.drawString(x_margin, y, ln)
             y -= line_step
@@ -303,50 +303,99 @@ def generate_pdf_bytes_for_debt(
     order_date = pd.to_datetime(main_row["Дата вынесения приказа"]).date()
     base_debt = Decimal(str(main_row["Сумма платежей с декабря 2024"]))
 
-    # Заголовок
-    draw_line(
-        f"Расчёт индексации присуждённой денежной суммы. Рег. номер {reg_num}",
-        bold=True,
-    )
-    draw_line("")
-    draw_line(f"Крайняя дата расчёта: {fmt_date(cutoff_date)}")
-    draw_line(
-        f"Сумма долга на дату вынесения приказа ({fmt_date(order_date)}): "
-        f"{fmt_money(base_debt)}"
-    )
-    draw_line(f"Итоговая сумма индексации: {fmt_money(total_indexation)}")
+    # --------- Шапка, как в образце ---------
+
+    draw_line("Расчёт индексации присуждённых денежных сумм", bold=True)
     draw_line("")
 
-    # Детализация по периодам
+    draw_line(
+        f"Взысканная сумма на дату начала периода индексации "
+        f"({fmt_date(order_date)}): {fmt_money(base_debt)}"
+    )
+
+    total_days = (cutoff_date - order_date).days + 1
+    draw_line(
+        f"Период индексации: {fmt_date(order_date)} – {fmt_date(cutoff_date)} "
+        f"({total_days} дней)"
+    )
+    draw_line("Регион: Российская Федерация")
+    draw_line(f"Сумма индексации: {fmt_money(total_indexation)}")
+    draw_line("")
+
+    # --------- Блок «Порядок расчёта» ---------
+
+    draw_line("Порядок расчёта:", bold=True)
+    draw_line(
+        "Сумма долга × ИПЦ1 × пропорция первого месяца × ИПЦ2 × ИПЦ3 × ... × "
+        "ИПЦn × пропорция последнего месяца – сумма долга = И"
+    )
+    draw_line("")
+
+    # --------- Первый период (общая индексация до первого платежа) ---------
+
+    if periods:
+        first = periods[0]
+        draw_line(
+            f"Индексация за период: "
+            f"{fmt_date(first['period_start'])} – {fmt_date(first['period_end'])}",
+            bold=True,
+        )
+        draw_line(
+            f"Индексируемая сумма на начало периода: "
+            f"{fmt_money(first['debt_before'])}"
+        )
+        draw_line(
+            f"Индексация за период: {fmt_money(first['indexation'])}"
+        )
+        draw_line("")
+
+    # --------- Частичные оплаты ---------
+
+    # нумерация «Частичная оплата долга #1, #2, ...»
+    # идём по всем периодам; для визуала используем тот же период,
+    # что и в расчёте (мы НЕ меняем логику расчёта).
     for i, p in enumerate(periods, start=1):
-        if p["payment_date"] is not None and p["payment_amount"] != Decimal("0.00"):
+        # если нет платежа (хвост без оплаты) – показываем как отдельный период
+        has_payment = p["payment_date"] is not None and p["payment_amount"] != Decimal("0.00")
+
+        if has_payment:
+            draw_line(f"Частичная оплата долга #{i}", bold=True)
             draw_line(
                 f"Платёж #{i}: дата {fmt_date(p['payment_date'])}, "
-                f"сумма {fmt_money(p['payment_amount'])}",
-                bold=True,
+                f"сумма {fmt_money(p['payment_amount'])}"
             )
         else:
             draw_line(f"Период без платежа #{i}", bold=True)
 
         draw_line(
-            f"  Период индексации: {fmt_date(p['period_start'])} – "
+            f"Период индексации: {fmt_date(p['period_start'])} – "
             f"{fmt_date(p['period_end'])}"
         )
+
+        # формула «остаток долга на начало периода = ...» максимально похожа на образец
         draw_line(
-            f"  Остаток долга на начало периода: {fmt_money(p['debt_before'])}"
+            f"Остаток долга на начало периода: {fmt_money(p['debt_before'])}"
         )
         draw_line(
-            f"  Индексация за период: {fmt_money(p['indexation'])}"
+            f"Остаток долга после периода: {fmt_money(p['debt_after_payment'])}"
         )
         draw_line(
-            f"  Остаток долга после периода: {fmt_money(p['debt_after_payment'])}"
+            f"Индексация за период: {fmt_money(p['indexation'])}"
         )
         draw_line("")
+
+    # --------- Итоговая строка ---------
+
+    draw_line(
+        f"Итоговая индексация = {fmt_money(total_indexation)}",
+        bold=True,
+    )
 
     c.showPage()
     c.save()
     buffer.seek(0)
     return buffer.getvalue()
+
 
 
 # =========================
