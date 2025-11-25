@@ -4,6 +4,30 @@ import streamlit as st
 import converter_app
 import indexation_app
 
+# ===== Простая авторизация =====
+CREDENTIALS = {
+    "Mariam": "Mariam4321",
+}
+
+def login():
+    st.title("🔐 Авторизация")
+    with st.form("login_form"):
+        username = st.text_input("Логин")
+        password = st.text_input("Пароль", type="password")
+        submitted = st.form_submit_button("Войти")
+        if submitted:
+            if username in CREDENTIALS and CREDENTIALS[username] == password:
+                st.session_state["auth"] = True
+                st.session_state["user"] = username
+            else:
+                st.error("Неверный логин или пароль")
+
+if "auth" not in st.session_state or not st.session_state["auth"]:
+    login()
+    st.stop()
+
+
+
 def main():
     st.set_page_config(
         page_title="Bank tools",
