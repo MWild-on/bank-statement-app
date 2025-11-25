@@ -480,5 +480,3 @@ def main():
                 st.error(f"Ошибка при обработке файла: {e}")
 
 
-if __name__ == "__main__":
-    main()
