@@ -292,7 +292,7 @@ def generate_pdf_bytes_for_debt(
     def draw_line(text: str = "", bold: bool = False):
         nonlocal y
         c.setFont(FONT_NAME, 12 if bold else 10)
-        max_chars = 95
+        max_chars = 70
         lines = [text[i:i + max_chars] for i in range(0, len(text), max_chars)] or [""]
         for ln in lines:
             c.drawString(x_margin, y, ln)
@@ -340,10 +340,13 @@ def generate_pdf_bytes_for_debt(
 
     draw_line("Порядок расчёта:", bold=True)
     draw_line(
-        "Сумма долга × ИПЦ1 × пропорция первого месяца × ИПЦ2 × ИПЦ3 × ... × "
-        "ИПЦn × пропорция последнего месяца – сумма долга = И"
+        "Сумма долга × ИПЦ1 × пропорция первого месяца × ИПЦ2 × ИПЦ3 × ... × ИПЦn"
+    )
+    draw_line(
+        "× пропорция последнего месяца – сумма долга = И"
     )
     draw_line("")
+
 
     # --------- Индексация за первый период ---------
 
