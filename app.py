@@ -7,6 +7,7 @@ import indexation_app
 # ===== Простая авторизация =====
 CREDENTIALS = {
     "Mariam": "Mariam4321",
+    "MM": "1",
 }
 
 def login():
