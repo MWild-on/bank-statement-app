@@ -3,3 +3,4 @@ pandas
 openpyxl
 natasha
 pymorphy2-dicts-ru
+reportlab
