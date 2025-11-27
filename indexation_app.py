@@ -41,6 +41,28 @@ def fmt_date(d: dt.date | None) -> str:
         return ""
     return d.strftime("%d.%m.%Y")
 
+def fmt_plain(value: Decimal | float | int) -> str:
+    """
+    Форматирование чисел для формул:
+    12345.67 → 12 345,67
+    (без слова 'руб.')
+    """
+    if not isinstance(value, Decimal):
+        value = Decimal(str(value))
+
+    # нули и мусор округляем
+    if value.copy_abs() < Decimal("0.005"):
+        value = Decimal("0.00")
+
+    value = value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    s = f"{value:.2f}"
+    integer, frac = s.split(".")
+
+    integer = integer.replace(",", "")
+    integer = "{:,}".format(int(integer)).replace(",", " ")
+
+    return f"{integer},{frac}"
 
 # =========================
 #  Вспомогательные функции
