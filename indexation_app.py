@@ -270,6 +270,11 @@ def calculate_indexation_for_debt(
 #  PDF по долгу (в память)
 # =========================
 
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.units import mm
+
 def generate_pdf_bytes_for_debt(
     reg_num: int,
     main_row: pd.Series,
@@ -277,144 +282,185 @@ def generate_pdf_bytes_for_debt(
     periods,
     cutoff_date: dt.date,
 ) -> bytes:
-    """
-    Возвращает байты PDF для одного долга.
-    Шаблон максимально приближен к образцу из DOCX.
-    """
+
     buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
 
-    x_margin = 20 * mm
-    y = height - 20 * mm
-    line_step = 6 * mm
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=20*mm,
+        rightMargin=20*mm,
+        topMargin=15*mm,
+        bottomMargin=15*mm,
+        title=f"Расчёт индексации {reg_num}",
+    )
 
-    def draw_line(text: str = "", bold: bool = False):
-        nonlocal y
-        c.setFont(FONT_NAME, 12 if bold else 10)
-        max_chars = 80
-        lines = [text[i:i + max_chars] for i in range(0, len(text), max_chars)] or [""]
-        for ln in lines:
-            c.drawString(x_margin, y, ln)
-            y -= line_step
-            if y < 20 * mm:
-                c.showPage()
-                y = height - 20 * mm
+    story = []
 
-    def fmt_plain(value: Decimal | float | int) -> str:
-        """Деньги без 'руб.', чтобы писать формулу X - Y = Z."""
-        if not isinstance(value, Decimal):
-            value_dec = Decimal(str(value))
-        else:
-            value_dec = value
-        if value_dec.copy_abs() < Decimal("0.005"):
-            value_dec = Decimal("0.00")
-        value_dec = value_dec.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        s = f"{value_dec:,.2f}"
-        s = s.replace(",", " ").replace(".", ",")
-        return s
+    # -----------------------------
+    # Стили
+    # -----------------------------
+    styles = getSampleStyleSheet()
+
+    style_title = ParagraphStyle(
+        "Title",
+        parent=styles["Normal"],
+        fontName=FONT_NAME,
+        fontSize=14,
+        leading=18,
+        spaceAfter=12,
+        alignment=TA_LEFT,
+        bold=True
+    )
+
+    style_h2 = ParagraphStyle(
+        "Heading2",
+        parent=styles["Normal"],
+        fontName=FONT_NAME,
+        fontSize=12,
+        leading=16,
+        spaceAfter=10,
+        bold=True
+    )
+
+    style_text = ParagraphStyle(
+        "NormalText",
+        parent=styles["Normal"],
+        fontName=FONT_NAME,
+        fontSize=12,
+        leading=15,
+        spaceAfter=6,
+        alignment=TA_LEFT,
+    )
+
+    style_formula = ParagraphStyle(
+        "Formula",
+        parent=styles["Normal"],
+        fontName=FONT_NAME,
+        fontSize=12,
+        leading=15,
+        spaceAfter=12,
+        alignment=TA_LEFT
+    )
+
+    # -----------------------------
+    # Заголовок
+    # -----------------------------
+    story.append(Paragraph("Расчёт индексации присуждённых денежных сумм", style_title))
 
     order_date = pd.to_datetime(main_row["Дата вынесения приказа"]).date()
     base_debt = Decimal(str(main_row["Сумма платежей с декабря 2024"]))
-
-    # --------- Шапка ---------
-
-    draw_line("Расчёт индексации присуждённых денежных сумм", bold=True)
-    draw_line("")
-
-    draw_line(
-        f"Взысканная сумма на дату начала периода индексации "
-        f"({fmt_date(order_date)}): {fmt_money(base_debt)}"
-    )
-
     total_days = (cutoff_date - order_date).days + 1
-    draw_line(
-        f"Период индексации: {fmt_date(order_date)} – {fmt_date(cutoff_date)} "
-        f"({total_days} дней)"
-    )
-    draw_line("Регион: Российская Федерация")
-    draw_line(f"Сумма индексации: {fmt_money(total_indexation)}")
-    draw_line("")
 
-    # --------- Порядок расчёта ---------
+    story.append(Paragraph(
+        f"Взысканная сумма на дату начала периода индексации ({fmt_date(order_date)}): "
+        f"{fmt_money(base_debt)}",
+        style_text
+    ))
 
-    draw_line("Порядок расчёта:", bold=True)
-    draw_line(
-        "Сумма долга × ИПЦ1 × пропорция первого месяца × ИПЦ2 × ИПЦ3 × ... × ИПЦn"
-    )
-    draw_line(
-        "× пропорция последнего месяца – сумма долга = И"
-    )
-    draw_line("")
+    story.append(Paragraph(
+        f"Период индексации: {fmt_date(order_date)} – {fmt_date(cutoff_date)} ({total_days} дней)",
+        style_text
+    ))
 
+    story.append(Paragraph("Регион: Российская Федерация", style_text))
 
-    # --------- Индексация за первый период ---------
+    story.append(Paragraph(
+        f"Сумма индексации: {fmt_money(total_indexation)}",
+        style_text
+    ))
 
+    story.append(Spacer(1, 6))
+
+    # -----------------------------
+    # Порядок расчёта
+    # -----------------------------
+
+    story.append(Paragraph("Порядок расчёта:", style_h2))
+
+    story.append(Paragraph(
+        "Сумма долга × ИПЦ1 × пропорция первого месяца × ИПЦ2 × ИПЦ3 × ... × ИПЦn<br/>"
+        "× пропорция последнего месяца – сумма долга = И",
+        style_formula
+    ))
+
+    # -----------------------------
+    # Первый период
+    # -----------------------------
     if periods:
         first = periods[0]
-        draw_line(
-            f"Индексация за период: "
-            f"{fmt_date(first['period_start'])} – {fmt_date(first['period_end'])}",
-            bold=True,
-        )
-        draw_line(
-            f"Индексируемая сумма на начало периода: "
-            f"{fmt_money(first['debt_before'])}"
-        )
-        draw_line(
-            f"Индексация за период: {fmt_money(first['indexation'])}"
-        )
-        draw_line("")
 
-    # --------- Частичные оплаты / последующие периоды ---------
+        story.append(Paragraph(
+            f"Индексация за период: {fmt_date(first['period_start'])} – {fmt_date(first['period_end'])}",
+            style_h2
+        ))
 
+        story.append(Paragraph(
+            f"Индексируемая сумма на начало периода: {fmt_money(first['debt_before'])}",
+            style_text
+        ))
+
+        story.append(Paragraph(
+            f"Индексация за период: {fmt_money(first['indexation'])}",
+            style_text
+        ))
+
+        story.append(Spacer(1, 12))
+
+    # -----------------------------
+    # Частичные оплаты
+    # -----------------------------
     for i, p in enumerate(periods, start=1):
-        draw_line(f"Частичная оплата долга #{i}", bold=True)
 
-        if p["payment_date"] is not None and p["payment_amount"] != Decimal("0.00"):
-            draw_line(
-                f"Платёж #{i}: дата {fmt_date(p['payment_date'])}, "
-                f"сумма {fmt_money(p['payment_amount'])}"
-            )
+        story.append(Paragraph(f"Частичная оплата долга #{i}", style_h2))
+
+        if p["payment_date"] and p["payment_amount"] != Decimal("0.00"):
+            story.append(Paragraph(
+                f"Платёж #{i}: дата {fmt_date(p['payment_date'])}, сумма {fmt_money(p['payment_amount'])}",
+                style_text
+            ))
         else:
-            draw_line("Платёж в данном периоде отсутствует")
+            story.append(Paragraph("Платёж в данном периоде отсутствует", style_text))
 
-        draw_line(
-            f"Период индексации: {fmt_date(p['period_start'])} – "
-            f"{fmt_date(p['period_end'])}"
-        )
+        story.append(Paragraph(
+            f"Период индексации: {fmt_date(p['period_start'])} – {fmt_date(p['period_end'])}",
+            style_text
+        ))
 
-        # Формула, как в образце: X - Y = Z
-        if p["payment_amount"] is not None and p["payment_amount"] != Decimal("0.00"):
-            formula_line = (
+        # Формула X - Y = Z
+        if p["payment_amount"] and p["payment_amount"] != Decimal("0.00"):
+            line = (
                 f"Остаток долга на начало периода: "
                 f"{fmt_plain(p['debt_before'])} - {fmt_plain(p['payment_amount'])} "
                 f"= {fmt_plain(p['debt_after_payment'])} руб."
             )
         else:
-            formula_line = (
-                f"Остаток долга на начало периода: "
-                f"{fmt_plain(p['debt_before'])} руб."
-            )
+            line = f"Остаток долга на начало периода: {fmt_plain(p['debt_before'])} руб."
 
-        draw_line(formula_line)
-        draw_line(
-            f"Остаток долга после периода: {fmt_money(p['debt_after_payment'])}"
-        )
-        draw_line(
-            f"Индексация за период: {fmt_money(p['indexation'])}"
-        )
-        draw_line("")
+        story.append(Paragraph(line, style_text))
 
-    # --------- Итог ---------
+        story.append(Paragraph(
+            f"Остаток долга после периода: {fmt_money(p['debt_after_payment'])}",
+            style_text
+        ))
 
-    draw_line(
+        story.append(Paragraph(
+            f"Индексация за период: {fmt_money(p['indexation'])}",
+            style_text
+        ))
+
+        story.append(Spacer(1, 8))
+
+    # -----------------------------
+    # Итог
+    # -----------------------------
+
+    story.append(Paragraph(
         f"Итоговая индексация = {fmt_money(total_indexation)}",
-        bold=True,
-    )
+        style_h2
+    ))
 
-    c.showPage()
-    c.save()
+    doc.build(story)
     buffer.seek(0)
     return buffer.getvalue()
 
