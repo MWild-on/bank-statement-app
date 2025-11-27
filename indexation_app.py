@@ -399,35 +399,37 @@ def generate_pdf_bytes_for_debt(
     story.append(Paragraph("Расчёт индексации присуждённых денежных сумм", style_title))
 
     story.append(Spacer(1, 12))
-    
+
     order_date = pd.to_datetime(main_row["Дата вынесения приказа"]).date()
     base_debt = Decimal(str(main_row["Сумма платежей с декабря 2024"]))
     total_days = (cutoff_date - order_date).days + 1
-
-    # 2–5: все строки жирным
-    story.append(Paragraph(
-        f"<b>Взысканная сумма на дату начала периода индексации "
-        f"({fmt_date(order_date)}):</b> {fmt_money(base_debt)}",
-        style_text,
-    ))
     
+    # 1. Взысканная сумма: лейбл жирный, сумма с новой строки
     story.append(Paragraph(
         f"<b>Взысканная сумма на дату начала периода индексации ({fmt_date(order_date)}):</b><br/>{fmt_money(base_debt)}",
         style_text,
     ))
+    
+    # 2. Период индексации
+    story.append(Paragraph(
+        f"<b>Период индексации:</b><br/>{fmt_date(order_date)} – {fmt_date(cutoff_date)} ({total_days} дней)",
+        style_text,
+    ))
+    
+    # 3. Регион
+    story.append(Paragraph(
+        "<b>Регион:</b><br/>Российская Федерация",
+        style_text,
+    ))
+    
+    # 4. Сумма индексации
+    story.append(Paragraph(
+        f"<b>Сумма индексации:</b><br/>{fmt_money(total_indexation)}",
+        style_text,
+    ))
+    
+    story.append(Spacer(1, 12))
 
-    
-    story.append(Paragraph(
-        "<b>Регион:</b> Российская Федерация",
-        style_text,
-    ))
-    
-    story.append(Paragraph(
-        f"<b>Сумма индексации:</b> {fmt_money(total_indexation)}",
-        style_text,
-    ))
-    
-    story.append(Spacer(1, 12))  # пустая строка после «Сумма индексации»
 
 
     # -----------------------------
