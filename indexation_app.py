@@ -650,18 +650,28 @@ def run():
         type=["xlsx"],
     )
 
+    if uploaded_file is not None:
+        st.success("Файл загружен. Нажмите кнопку ниже для расчёта.")
+
         if st.button("Рассчитать индексацию"):
             try:
-                zip_bytes, main_df, effective_cutoff = process_workbook(
+                excel_bytes, zip_bytes, main_df, effective_cutoff = process_workbook(
                     uploaded_file, cutoff_date
                 )
 
                 st.info(f"Фактическая крайняя дата расчёта: {effective_cutoff}")
 
                 st.download_button(
-                    label="Скачать архив (Excel + PDF-отчёты)",
+                    label="Скачать Excel с индексацией",
+                    data=excel_bytes,
+                    file_name="Файл для расчета_с_индексацией.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+
+                st.download_button(
+                    label="Скачать ZIP с PDF-отчётами",
                     data=zip_bytes,
-                    file_name="indexation_results.zip",
+                    file_name="pdf_otchety.zip",
                     mime="application/zip",
                 )
 
