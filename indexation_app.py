@@ -386,7 +386,7 @@ def generate_pdf_bytes_for_debt(
     # -----------------------------
     # Заголовок
     # -----------------------------
-    story.append(Paragraph("Расчёт индексации присуждённых денежных сумм!", style_title))
+    story.append(Paragraph("Расчёт индексации присуждённых денежных сумм", style_title))
     story.append(Spacer(1, 12))
 
     order_date = pd.to_datetime(main_row["Дата вынесения приказа"]).date()
@@ -621,7 +621,7 @@ def process_workbook(uploaded_file, cutoff_date: dt.date):
 # =========================
 
 def run():
-    st.title("Расчёт индексации присуждённых денежных сумм!!")
+    st.title("Расчёт индексации присуждённых денежных сумм")
 
     st.write(
         "Загрузите Excel-файл со страницами **«Основной»**, "
