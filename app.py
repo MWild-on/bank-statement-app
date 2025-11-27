@@ -47,7 +47,6 @@ def main():
     elif page == "Индексация":
         indexation_app.run()
     elif page == "Создание выписки":
-        statement_app.run()   # 🔹 Вызов нового раздела
-
+        statement_app.run()  
 if __name__ == "__main__":
     main()
