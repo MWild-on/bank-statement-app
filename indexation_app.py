@@ -12,6 +12,19 @@ from reportlab.pdfgen import canvas
 
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+
+FONT_NAME = "DejaVuSans"
+FONT_NAME_BOLD = "DejaVuSansBold"
+
+pdfmetrics.registerFont(
+    TTFont(FONT_NAME, str(BASE_DIR / "DejaVuSans.ttf"))
+)
+pdfmetrics.registerFont(
+    TTFont(FONT_NAME_BOLD, str(BASE_DIR / "DejaVuSans-Bold.ttf"))
+)
 
 # ---------- Шрифт с кириллицей ----------
 
@@ -327,33 +340,33 @@ def generate_pdf_bytes_for_debt(
     style_title = ParagraphStyle(
         "Title",
         parent=styles["Normal"],
-        fontName=FONT_NAME,
+        fontName=FONT_NAME_BOLD,   # <-- BOLD
         fontSize=14,
         leading=18,
         spaceAfter=12,
         alignment=TA_LEFT,
-        bold=True
     )
-
+    
     style_h2 = ParagraphStyle(
         "Heading2",
         parent=styles["Normal"],
-        fontName=FONT_NAME,
+        fontName=FONT_NAME_BOLD,   # <-- BOLD
         fontSize=12,
         leading=16,
         spaceAfter=10,
-        bold=True
+        alignment=TA_LEFT,
     )
-
+    
     style_text = ParagraphStyle(
         "NormalText",
         parent=styles["Normal"],
-        fontName=FONT_NAME,
+        fontName=FONT_NAME,        # обычный
         fontSize=12,
         leading=15,
         spaceAfter=6,
         alignment=TA_LEFT,
     )
+
 
     style_formula = ParagraphStyle(
         "Formula",
