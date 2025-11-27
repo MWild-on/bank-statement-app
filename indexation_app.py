@@ -16,8 +16,18 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 
-FONT_NAME = "DejaVuSans"
-FONT_NAME_BOLD = "DejaVuSansBold"
+pdfmetrics.registerFont(TTFont("DejaVuSans", str(BASE_DIR / "DejaVuSans.ttf")))
+pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", str(BASE_DIR / "DejaVuSans-Bold.ttf")))
+
+# важно: регистрируем семейство, чтобы <b> знал, какой bold использовать
+pdfmetrics.registerFontFamily(
+    "DejaVuSans",
+    normal="DejaVuSans",
+    bold="DejaVuSans-Bold",
+)
+FONT_NAME = "DejaVuSans"          # семейство
+FONT_NAME_BOLD = "DejaVuSans-Bold"
+
 
 pdfmetrics.registerFont(
     TTFont(FONT_NAME, str(BASE_DIR / "DejaVuSans.ttf"))
@@ -405,25 +415,28 @@ def generate_pdf_bytes_for_debt(
 
     # 2–5: все строки жирным
     story.append(Paragraph(
-        f"Взысканная сумма на дату начала периода индексации ({fmt_date(order_date)}): "
-        f"{fmt_money(base_debt)}",
-        style_label,
+        f"<b>Взысканная сумма на дату начала периода индексации "
+        f"({fmt_date(order_date)}):</b> {fmt_money(base_debt)}",
+        style_text,
     ))
-
+    
     story.append(Paragraph(
-        f"Период индексации: {fmt_date(order_date)} – {fmt_date(cutoff_date)} ({total_days} дней)",
-        style_label,
+        f"<b>Период индексации:</b> {fmt_date(order_date)} – "
+        f"{fmt_date(cutoff_date)} ({total_days} дней)",
+        style_text,
     ))
-
-    story.append(Paragraph("Регион: Российская Федерация", style_label))
-
+    
     story.append(Paragraph(
-        f"Сумма индексации: {fmt_money(total_indexation)}",
-        style_label,
+        "<b>Регион:</b> Российская Федерация",
+        style_text,
     ))
-
-    # 6. После «Сумма индексации» — пустая строка (чуть больше отступ)
-    story.append(Spacer(1, 12))
+    
+    story.append(Paragraph(
+        f"<b>Сумма индексации:</b> {fmt_money(total_indexation)}",
+        style_text,
+    ))
+    
+    story.append(Spacer(1, 12))  # пустая строка после «Сумма индексации»
 
 
     # -----------------------------
