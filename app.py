@@ -3,6 +3,7 @@
 import streamlit as st
 import converter_app
 import indexation_app
+import statement_app  # 🔹 НОВЫЙ МОДУЛЬ
 
 # ===== Простая авторизация =====
 CREDENTIALS = {
@@ -29,7 +30,6 @@ if "auth" not in st.session_state or not st.session_state["auth"]:
     st.stop()
 
 
-
 def main():
     st.set_page_config(
         page_title="Bank tools",
@@ -39,13 +39,15 @@ def main():
     st.sidebar.title("Навигация")
     page = st.sidebar.radio(
         "Выберите раздел:",
-        ("Конвертер", "Индексация"),
+        ("Конвертер", "Индексация", "Создание выписки"),
     )
 
     if page == "Конвертер":
         converter_app.run()
     elif page == "Индексация":
         indexation_app.run()
+    elif page == "Создание выписки":
+        statement_app.run()   # 🔹 Вызов нового раздела
 
 if __name__ == "__main__":
     main()
