@@ -8,26 +8,43 @@ import statement_app  # 🔹 НОВЫЙ МОДУЛЬ
 # ===== Простая авторизация =====
 import streamlit as st
 
+import streamlit as st
+
 def check_password():
+    # Функция проверки пароля
     def password_entered():
-        if st.session_state["password"] == st.secrets["app_password"]:
+        entered = st.session_state.get("password", "")
+        if entered == st.secrets["app_password"]:
             st.session_state["password_correct"] = True
-            del st.session_state["password"] 
         else:
             st.session_state["password_correct"] = False
 
+    # Первичная инициализация флага
     if "password_correct" not in st.session_state:
-        st.text_input("Пароль:", type="password", on_change=password_entered, key="password")
-        return False
-    elif not st.session_state["password_correct"]:
-        st.text_input("Пароль:", type="password", on_change=password_entered, key="password")
-        st.error("Неверный пароль")
-        return False
-    else:
-        return True
+        st.session_state["password_correct"] = False
 
+    # Если пароль ещё не введён или он неверный — показываем форму входа
+    if not st.session_state["password_correct"]:
+        st.markdown("### Добро пожаловать в W001-app")
+
+        st.text_input("Пароль:", type="password", key="password")
+
+        if st.button("Войти"):
+            password_entered()
+
+        if st.session_state.get("password") and not st.session_state["password_correct"]:
+            st.error("Неверный пароль")
+
+        return False
+
+    # Если пароль корректный — доступ разрешён
+    return True
+
+
+# Блок защиты
 if not check_password():
     st.stop()
+
 
 
 
