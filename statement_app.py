@@ -175,7 +175,8 @@ def _build_result_excel(case_df: pd.DataFrame, payments_raw: pd.DataFrame) -> by
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine="openpyxl") as writer:
         case_df.to_excel(writer, sheet_name="CaseID", index=False)
-        payments_raw.to_excel(writer, sheet_name="Payments", index=False)
+        # ⚠ тут убираем index=False, чтобы pandas нормально записал MultiIndex-колонки
+        payments_raw.to_excel(writer, sheet_name="Payments")
     out.seek(0)
     return out
 
@@ -190,10 +191,6 @@ def run():
         type=["xlsx"],
     )
 
-    template_file = st.file_uploader(
-        "Загрузите Word-шаблон выписки (Template R.docx)",
-        type=["docx"],
-    )
 
     with st.form("stmt_header_form"):
         st.subheader("Параметры шапки выписки")
@@ -221,12 +218,21 @@ def run():
     if not submitted:
         return
 
-    if uploaded_xlsx is None or template_file is None:
-        st.error("Нужно загрузить и Excel, и шаблон Template R.docx.")
+    if uploaded_xlsx is None:
+        st.error("Нужно загрузить Excel с листами CaseID и Payments.")
         return
 
+    template_path = "Template R.docx"   # путь к файлу в репозитории
+
+    try:
+        with open(template_path, "rb") as f:
+            template_bytes = f.read()
+    except FileNotFoundError:
+        st.error(f"Не найден файл шаблона: {template_path}. Проверь имя и путь в репозитории.")
+        return
+
+    
     xls_bytes = uploaded_xlsx.read()
-    template_bytes = template_file.read()
 
     # читаем и готовим данные
     case_df = _load_caseid_df(xls_bytes)
