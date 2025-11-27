@@ -937,7 +937,7 @@ def process_workbook(uploaded_file, cutoff_date):
 # ============================================================
 
 def run():
-    st.title("Расчёт индексации присуждённых денежных сумм")
+    st.title("Расчёт индексации присуждённых денежных сумм!!")
 
     today = dt.date.today()
     default_cutoff = today.replace(day=1) - dt.timedelta(days=1)
