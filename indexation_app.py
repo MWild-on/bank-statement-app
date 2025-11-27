@@ -333,8 +333,8 @@ def generate_pdf_bytes_for_debt(
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
-        leftMargin=20*mm,
-        rightMargin=20*mm,
+        leftMargin=18*mm,
+        rightMargin=18*mm,
         topMargin=15*mm,
         bottomMargin=15*mm,
         title=f"Расчёт индексации {reg_num}",
