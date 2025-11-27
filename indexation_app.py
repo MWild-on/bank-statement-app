@@ -412,19 +412,19 @@ def generate_pdf_bytes_for_debt(
     
     # 2. Период индексации
     story.append(Paragraph(
-        f"<b>Период индексации:</b>{fmt_date(order_date)} – {fmt_date(cutoff_date)} ({total_days} дней)",
+        f"<b>Период индексации: </b>{fmt_date(order_date)} – {fmt_date(cutoff_date)} ({total_days} дней)",
         style_text,
     ))
     
     # 3. Регион
     story.append(Paragraph(
-        "<b>Регион:</b>Российская Федерация",
+        "<b>Регион: </b>Российская Федерация",
         style_text,
     ))
     
     # 4. Сумма индексации
     story.append(Paragraph(
-        f"<b>Сумма индексации:</b>{fmt_money(total_indexation)}",
+        f"<b>Сумма индексации: </b>{fmt_money(total_indexation)}",
         style_text,
     ))
     
