@@ -16,30 +16,23 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 
+
+
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parent
+
 pdfmetrics.registerFont(TTFont("DejaVuSans", str(BASE_DIR / "DejaVuSans.ttf")))
 pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", str(BASE_DIR / "DejaVuSans-Bold.ttf")))
 
-# важно: регистрируем семейство, чтобы <b> знал, какой bold использовать
+# Привязываем семейство!
 pdfmetrics.registerFontFamily(
     "DejaVuSans",
     normal="DejaVuSans",
     bold="DejaVuSans-Bold",
 )
-FONT_NAME = "DejaVuSans"          # семейство
-FONT_NAME_BOLD = "DejaVuSans-Bold"
 
 
-pdfmetrics.registerFont(
-    TTFont(FONT_NAME, str(BASE_DIR / "DejaVuSans.ttf"))
-)
-pdfmetrics.registerFont(
-    TTFont(FONT_NAME_BOLD, str(BASE_DIR / "DejaVuSans-Bold.ttf"))
-)
 
-# ---------- Шрифт с кириллицей ----------
-
-FONT_NAME = "DejaVuSans"
-pdfmetrics.registerFont(TTFont(FONT_NAME, "DejaVuSans.ttf"))
 
 
 # ---------- Форматирование ----------
