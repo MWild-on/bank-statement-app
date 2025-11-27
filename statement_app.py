@@ -253,4 +253,84 @@ def run():
         return
 
     try:
-        wit
+        with open(template_w_path, "rb") as f:
+            template_w_bytes = f.read()
+    except FileNotFoundError:
+        # W может не использоваться — тогда просто предупредим при попытке
+        template_w_bytes = None
+
+    xls_bytes = uploaded_xlsx.read()
+
+    # читаем и готовим данные
+    case_df = _load_caseid_df(xls_bytes)
+    payments_raw = _load_payments_raw(xls_bytes)
+    payments_flat = _flatten_payments(payments_raw)
+    payments = _prepare_payments(payments_flat)
+
+    # динамика шапки (одинакова для R и W)
+    header_data = {
+        "stmt_date": stmt_date,
+        "stmt_time": stmt_time,
+        "period_from": period_from,
+        "period_to": period_to,
+    }
+
+    reg_col_payments = "ДАННЫЕ ПО ВЫПИСКЕ_Рег.номер"
+
+    # считаем Excel с суммами
+    case_updated = _update_caseid_with_sums(case_df, payments)
+    result_excel = _build_result_excel(case_updated, payments_raw)
+
+    # создаём один ZIP, куда кладём и выписки, и Excel
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        warning_w_missing = False
+
+        # выписки по каждому Рег.номеру
+        for _, row in case_df.iterrows():
+            reg_num = row["Рег.номер"]
+            template_code = str(row["Шалон"]).strip().upper()
+
+            if pd.isna(reg_num):
+                continue
+
+            try:
+                reg_int = int(reg_num)
+            except Exception:
+                continue
+
+            case_payments = payments[payments[reg_col_payments] == reg_int]
+            if case_payments.empty:
+                continue
+
+            if template_code == "R":
+                template_bytes = template_r_bytes
+            elif template_code == "W":
+                if template_w_bytes is None:
+                    warning_w_missing = True
+                    continue
+                template_bytes = template_w_bytes
+            else:
+                # неизвестный код шаблона — пропускаем
+                continue
+
+            docx_bytes = _fill_template(template_bytes, header_data, case_payments)
+            filename = f"{reg_int}_{template_code}.docx"
+            zf.writestr(filename, docx_bytes)
+
+        # добавляем Excel внутрь того же архива
+        zf.writestr("CaseID_with_sums.xlsx", result_excel.getvalue())
+
+    zip_buf.seek(0)
+
+    st.success("Выписки сформированы.")
+
+    st.download_button(
+        "⬇️ Скачать архив (выписки + Excel)",
+        data=zip_buf.getvalue(),
+        file_name="statements_RW_with_excel.zip",
+        mime="application/zip",
+    )
+
+    if template_w_bytes is None:
+        st.warning("Шаблон W не найден в репозитории (Template W.docx). Выписки по W не сформированы.")
