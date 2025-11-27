@@ -289,7 +289,7 @@ def run():
         # выписки по каждому Рег.номеру
         for _, row in case_df.iterrows():
             reg_num = row["Рег.номер"]
-            template_code = str(row["Шалон"]).strip().upper()
+            template_code = str(row["Шаблон"]).strip().upper()
 
             if pd.isna(reg_num):
                 continue
