@@ -307,7 +307,7 @@ def calculate_indexation_for_debt(
 
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.enums import TA_LEFT, TA_CENTER
 from reportlab.lib.units import mm
 
 def generate_pdf_bytes_for_debt(
@@ -337,36 +337,49 @@ def generate_pdf_bytes_for_debt(
     # -----------------------------
     styles = getSampleStyleSheet()
 
+    # Заголовок по центру, жирный
     style_title = ParagraphStyle(
         "Title",
         parent=styles["Normal"],
-        fontName=FONT_NAME_BOLD,   # <-- BOLD
+        fontName=FONT_NAME_BOLD,
         fontSize=14,
         leading=18,
         spaceAfter=12,
-        alignment=TA_LEFT,
+        alignment=TA_CENTER,   # <-- центр
     )
-    
+
+    # Подзаголовки слева, жирные
     style_h2 = ParagraphStyle(
         "Heading2",
         parent=styles["Normal"],
-        fontName=FONT_NAME_BOLD,   # <-- BOLD
+        fontName=FONT_NAME_BOLD,
         fontSize=12,
         leading=16,
         spaceAfter=10,
         alignment=TA_LEFT,
     )
-    
+
+    # Обычный текст
     style_text = ParagraphStyle(
         "NormalText",
         parent=styles["Normal"],
-        fontName=FONT_NAME,        # обычный
+        fontName=FONT_NAME,
         fontSize=12,
         leading=15,
         spaceAfter=6,
         alignment=TA_LEFT,
     )
 
+    # Строки с жирным «лейблом» (Взысканная сумма..., Период индексации и т.п.)
+    style_label = ParagraphStyle(
+        "LabelText",
+        parent=styles["Normal"],
+        fontName=FONT_NAME_BOLD,   # <-- вся строка жирным
+        fontSize=12,
+        leading=15,
+        spaceAfter=6,
+        alignment=TA_LEFT,
+    )
 
     style_formula = ParagraphStyle(
         "Formula",
@@ -375,8 +388,9 @@ def generate_pdf_bytes_for_debt(
         fontSize=12,
         leading=15,
         spaceAfter=12,
-        alignment=TA_LEFT
+        alignment=TA_LEFT,
     )
+
 
     # -----------------------------
     # Заголовок
@@ -387,25 +401,28 @@ def generate_pdf_bytes_for_debt(
     base_debt = Decimal(str(main_row["Сумма платежей с декабря 2024"]))
     total_days = (cutoff_date - order_date).days + 1
 
+    # 2–5: все строки жирным
     story.append(Paragraph(
         f"Взысканная сумма на дату начала периода индексации ({fmt_date(order_date)}): "
         f"{fmt_money(base_debt)}",
-        style_text
+        style_label,
     ))
 
     story.append(Paragraph(
         f"Период индексации: {fmt_date(order_date)} – {fmt_date(cutoff_date)} ({total_days} дней)",
-        style_text
+        style_label,
     ))
 
-    story.append(Paragraph("Регион: Российская Федерация", style_text))
+    story.append(Paragraph("Регион: Российская Федерация", style_label))
 
     story.append(Paragraph(
         f"Сумма индексации: {fmt_money(total_indexation)}",
-        style_text
+        style_label,
     ))
 
-    story.append(Spacer(1, 6))
+    # 6. После «Сумма индексации» — пустая строка (чуть больше отступ)
+    story.append(Spacer(1, 12))
+
 
     # -----------------------------
     # Порядок расчёта
@@ -418,6 +435,8 @@ def generate_pdf_bytes_for_debt(
         "× пропорция последнего месяца – сумма долга = И",
         style_formula
     ))
+
+    story.append(Spacer(1, 12))
 
     # -----------------------------
     # Первый период
