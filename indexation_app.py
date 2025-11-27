@@ -14,10 +14,6 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from pathlib import Path
 
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib import colors
-
-
 BASE_DIR = Path(__file__).resolve().parent
 
 # Регистрируем обычный и жирный шрифт
@@ -408,51 +404,28 @@ def generate_pdf_bytes_for_debt(
     base_debt = Decimal(str(main_row["Сумма платежей с декабря 2024"]))
     total_days = (cutoff_date - order_date).days + 1
 
-      # Таблица из 4 строк: лейбл (жирный) + значение
-    table_data = [
-        [
-            Paragraph(
-                f"<b>Взысканная сумма на дату начала периода индексации "
-                f"({fmt_date(order_date)}):</b>",
-                style_text,
-            ),
-            Paragraph(fmt_money(base_debt), style_text),
-        ],
-        [
-            Paragraph("<b>Период индексации:</b>", style_text),
-            Paragraph(
-                f"{fmt_date(order_date)} – {fmt_date(cutoff_date)} ({total_days} дней)",
-                style_text,
-            ),
-        ],
-        [
-            Paragraph("<b>Регион:</b>", style_text),
-            Paragraph("Российская Федерация", style_text),
-        ],
-        [
-            Paragraph("<b>Сумма индексации:</b>", style_text),
-            Paragraph(fmt_money(total_indexation), style_text),
-        ],
-    ]
-
-    # ширину колонок можно подогнать: первая шире, вторая для суммы
-    col_widths = [doc.width * 0.65, doc.width * 0.35]
-
-    info_table = Table(table_data, colWidths=col_widths)
-    info_table.setStyle(
-        TableStyle(
-            [
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                # без границ
-                ("BOX", (0, 0), (-1, -1), 0, colors.white),
-                ("INNERGRID", (0, 0), (-1, -1), 0, colors.white),
-            ]
-        )
-    )
-
-    story.append(info_table)
-    story.append(Spacer(1, 12))
-
+    # 2–5: все строки жирным
+    story.append(Paragraph(
+        f"<b>Взысканная сумма на дату начала периода индексации "
+        f"({fmt_date(order_date)}):</b> {fmt_money(base_debt)}",
+        style_text,
+    ))
+    
+    story.append(Paragraph(
+        f"<b>Период индексации:</b> {fmt_date(order_date)} – "
+        f"{fmt_date(cutoff_date)} ({total_days} дней)",
+        style_text,
+    ))
+    
+    story.append(Paragraph(
+        "<b>Регион:</b> Российская Федерация",
+        style_text,
+    ))
+    
+    story.append(Paragraph(
+        f"<b>Сумма индексации:</b> {fmt_money(total_indexation)}",
+        style_text,
+    ))
     
     story.append(Spacer(1, 12))  # пустая строка после «Сумма индексации»
 
