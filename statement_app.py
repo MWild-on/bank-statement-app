@@ -1,4 +1,4 @@
-# statement_app.py — раздел "Создание выписки"
+# statement_app.py — раздел "Создание выписки (шаблон R)"
 
 import io
 import zipfile
@@ -8,9 +8,41 @@ from datetime import datetime, date
 import pandas as pd
 import streamlit as st
 from docx import Document   # pip install python-docx
+from docx.shared import Pt
+from docx.oxml.ns import qn
 
 
-# ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
+# ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ТЕКСТА =====
+
+def set_cell_text(cell, text, font_name="Times New Roman", font_size=10):
+    """
+    Записать текст в ячейку таблицы, сохранив шрифт Times New Roman.
+    Полностью очищает содержимое ячейки и создаёт новый параграф.
+    """
+    # очистить содержимое ячейки
+    cell.text = ""
+    p = cell.paragraphs[0]
+    run = p.add_run(str(text) if text is not None else "")
+
+    run.font.name = font_name
+    run.font.size = Pt(font_size)
+
+    # важно: указать eastAsia, иначе Word может подставить Aptos
+    r = run._element
+    if r.rPr is None:
+        r_rPr = r.makeelement(qn("w:rPr"))
+        r.insert(0, r_rPr)
+    else:
+        r_rPr = r.rPr
+    if r_rPr.rFonts is None:
+        r_rFonts = r.makeelement(qn("w:rFonts"))
+        r_rPr.insert(0, r_rFonts)
+    else:
+        r_rFonts = r_rPr.rFonts
+    r_rFonts.set(qn("w:eastAsia"), font_name)
+
+
+# ===== ПРОЧИЕ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
 
 def _format_date(d) -> str:
     if pd.isna(d) or d is None:
@@ -38,7 +70,8 @@ def _load_payments_raw(xls_bytes: bytes) -> pd.DataFrame:
 
 
 def _flatten_payments(raw: pd.DataFrame) -> pd.DataFrame:
-    df = raw.iloc[1:].copy()  # пропускаем вторую строку шапки
+    # пропускаем вторую строку шапки
+    df = raw.iloc[1:].copy()
     df.columns = [
         "_".join([str(c) for c in col if str(c) != "nan"]).strip()
         for col in df.columns
@@ -70,6 +103,7 @@ def _fill_template_r(
 ) -> bytes:
     """
     Сформировать один docx по шаблону Template R (для одного Рег.номера).
+    Все вставляемые тексты — Times New Roman.
     """
     doc = Document(io.BytesIO(template_bytes))
 
@@ -79,47 +113,46 @@ def _fill_template_r(
     stmt_date_str = header_data["stmt_date"].strftime("%d.%m.%Y")
     stmt_time_str = header_data["stmt_time"].strftime("%H:%M:%S")
 
-    # период в простом формате, чтобы не заморачиваться с русскими месяцами
     period_str = (
         f"за период с {header_data['period_from'].strftime('%d.%m.%Y')} "
         f"по {header_data['period_to'].strftime('%d.%m.%Y')}"
     )
 
-    # row 0, col 0: дата (оставляем только дату)
-    top.cell(0, 0).text = stmt_date_str
+    # row 0, col 0: дата
+    set_cell_text(top.cell(0, 0), stmt_date_str)
 
     # row 1, col 0: банк
-    top.cell(1, 0).text = header_data["bank_name"]
+    set_cell_text(top.cell(1, 0), header_data["bank_name"])
 
     # row 2: "Дата формирования выписки ..."
     msg = f"Дата формирования выписки {stmt_date_str} в {stmt_time_str}"
-    top.cell(2, 0).text = msg
-    top.cell(2, 1).text = msg
+    set_cell_text(top.cell(2, 0), msg)
+    set_cell_text(top.cell(2, 1), msg)
 
     # row 3: заголовок и счёт
-    top.cell(3, 0).text = "ВЫПИСКА ОПЕРАЦИЙ ПО ЛИЦЕВОМУ СЧЕТУ"
-    top.cell(3, 1).text = "ВЫПИСКА ОПЕРАЦИЙ ПО ЛИЦЕВОМУ СЧЕТУ"
-    top.cell(3, 2).text = header_data["account_number"]
+    set_cell_text(top.cell(3, 0), "ВЫПИСКА ОПЕРАЦИЙ ПО ЛИЦЕВОМУ СЧЕТУ")
+    set_cell_text(top.cell(3, 1), "ВЫПИСКА ОПЕРАЦИЙ ПО ЛИЦЕВОМУ СЧЕТУ")
+    set_cell_text(top.cell(3, 2), header_data["account_number"])
 
     # row 4, col 2: наименование компании
-    top.cell(4, 2).text = header_data["company_name"]
+    set_cell_text(top.cell(4, 2), header_data["company_name"])
 
     # row 5, col 2 и 3: период
-    top.cell(5, 2).text = period_str
-    top.cell(5, 3).text = period_str
+    set_cell_text(top.cell(5, 2), period_str)
+    set_cell_text(top.cell(5, 3), period_str)
 
     # row 6, col 1: валюта
-    top.cell(6, 1).text = header_data["currency"]
+    set_cell_text(top.cell(6, 1), header_data["currency"])
 
     # ---------- НИЖНЯЯ ТАБЛИЦА (ОПЕРАЦИИ) ----------
     tbl = doc.tables[1]
-
-    # row 0 – заголовки, row 1 – дубли шапки, row 2 – шаблон строки
-    template_row_tr = tbl.rows[2]._tr
     tbl_el = tbl._tbl
 
-    # очищаем строки ниже 2-й, чтобы не накопилось мусора
-    while len(tbl.rows) > 2:
+    # row 0 – заголовки, row 1 – подзаголовки, row 2 – шаблон строки
+    template_row_tr = tbl.rows[2]._tr
+
+    # очищаем строки ниже шаблонной строки (оставляем строки 0,1,2)
+    while len(tbl.rows) > 3:
         tbl_el.remove(tbl.rows[-1]._tr)
 
     date_col = "ДАННЫЕ ПО ВЫПИСКЕ_Дата проводки"
@@ -132,30 +165,32 @@ def _fill_template_r(
     bank_col = "ДАННЫЕ ПО ВЫПИСКЕ_Банк (БИК и наименование)"
     purpose_col = "ДАННЫЕ ПО ВЫПИСКЕ_Назначение платежа"
 
+    have_rows = False
+
     for _, r in payments_case_df.iterrows():
         new_tr = deepcopy(template_row_tr)
         tbl_el.append(new_tr)
         new_row = tbl.rows[-1]
         cells = new_row.cells
 
-        cells[0].text = _format_date(r[date_col])
-        cells[1].text = str(r.get(acc_debit_col, "") or "")
-        cells[2].text = str(r.get(acc_credit_col, "") or "")
-        cells[3].text = _format_amount(r.get(debit_col, 0))
-        cells[4].text = _format_amount(r.get(credit_col, 0))
-        cells[5].text = str(r.get(docnum_col, "") or "")
-        cells[6].text = str(r.get(vo_col, "") or "")
-        cells[7].text = str(r.get(bank_col, "") or "")
-        cells[8].text = str(r.get(purpose_col, "") or "")
+        set_cell_text(cells[0], _format_date(r[date_col]))
+        set_cell_text(cells[1], r.get(acc_debit_col, "") or "")
+        set_cell_text(cells[2], r.get(acc_credit_col, "") or "")
+        set_cell_text(cells[3], _format_amount(r.get(debit_col, 0)))
+        set_cell_text(cells[4], _format_amount(r.get(credit_col, 0)))
+        set_cell_text(cells[5], r.get(docnum_col, "") or "")
+        set_cell_text(cells[6], r.get(vo_col, "") or "")
+        set_cell_text(cells[7], r.get(bank_col, "") or "")
+        set_cell_text(cells[8], r.get(purpose_col, "") or "")
 
-       # удаляем исходную шаблонную строку, если добавили реальные
-    if len(tbl.rows) > 3:
+        have_rows = True
+
+    # если добавили реальные строки — удалим шаблонную строку (индекс 2)
+    if have_rows and len(tbl.rows) > 3:
         try:
-            tbl_el.remove(tbl.rows[2]._tr)  # удаляем строку по текущему индексу 2
+            tbl_el.remove(tbl.rows[2]._tr)
         except ValueError:
-            # если строки уже нет в таблице — просто игнорируем
             pass
-
 
     out_buf = io.BytesIO()
     doc.save(out_buf)
@@ -172,11 +207,15 @@ def _update_caseid_with_sums(case_df: pd.DataFrame, payments_df: pd.DataFrame) -
 
 
 def _build_result_excel(case_df: pd.DataFrame, payments_raw: pd.DataFrame) -> bytes:
+    """
+    Собираем итоговый Excel:
+    - CaseID — плоский, без индекса
+    - Payments — как в исходном файле (MultiIndex колонок), поэтому index не убираем
+    """
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine="openpyxl") as writer:
         case_df.to_excel(writer, sheet_name="CaseID", index=False)
-        # ⚠ тут убираем index=False, чтобы pandas нормально записал MultiIndex-колонки
-        payments_raw.to_excel(writer, sheet_name="Payments")
+        payments_raw.to_excel(writer, sheet_name="Payments")  # без index=False
     out.seek(0)
     return out
 
@@ -190,7 +229,6 @@ def run():
         "Загрузите Excel с листами CaseID и Payments",
         type=["xlsx"],
     )
-
 
     with st.form("stmt_header_form"):
         st.subheader("Параметры шапки выписки")
@@ -222,7 +260,8 @@ def run():
         st.error("Нужно загрузить Excel с листами CaseID и Payments.")
         return
 
-    template_path = "Template R.docx"   # путь к файлу в репозитории
+    # читаем шаблон из репозитория
+    template_path = "Template R.docx"   # если лежит рядом с app.py / statement_app.py
 
     try:
         with open(template_path, "rb") as f:
@@ -231,7 +270,6 @@ def run():
         st.error(f"Не найден файл шаблона: {template_path}. Проверь имя и путь в репозитории.")
         return
 
-    
     xls_bytes = uploaded_xlsx.read()
 
     # читаем и готовим данные
@@ -263,17 +301,22 @@ def run():
                 # пока работаем только с шаблоном R
                 continue
 
-            case_payments = payments[
-                payments[reg_col_payments] == int(reg_num)
-            ]
+            if pd.isna(reg_num):
+                continue
+
+            try:
+                reg_int = int(reg_num)
+            except Exception:
+                continue
+
+            case_payments = payments[payments[reg_col_payments] == reg_int]
 
             if case_payments.empty:
                 continue
 
             docx_bytes = _fill_template_r(template_bytes, header_data, case_payments)
 
-            # Сейчас сохраняем DOCX, позже можно добавить конвертацию в PDF
-            filename = f"{reg_num}.docx"
+            filename = f"{reg_int}.docx"
             zf.writestr(filename, docx_bytes)
 
     zip_buf.seek(0)
