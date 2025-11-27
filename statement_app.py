@@ -19,7 +19,6 @@ def set_cell_text(cell, text, font_name="Times New Roman", font_size=10):
     Записать текст в ячейку таблицы, сохранив шрифт Times New Roman.
     Полностью очищает содержимое ячейки и создаёт новый параграф.
     """
-    # очистить содержимое ячейки
     cell.text = ""
     p = cell.paragraphs[0]
     run = p.add_run(str(text) if text is not None else "")
@@ -27,7 +26,7 @@ def set_cell_text(cell, text, font_name="Times New Roman", font_size=10):
     run.font.name = font_name
     run.font.size = Pt(font_size)
 
-    # важно: указать eastAsia, иначе Word может подставить Aptos
+    # чтобы Word не подменял шрифт на Aptos
     r = run._element
     if r.rPr is None:
         r_rPr = r.makeelement(qn("w:rPr"))
@@ -65,13 +64,12 @@ def _load_caseid_df(xls_bytes: bytes) -> pd.DataFrame:
 
 
 def _load_payments_raw(xls_bytes: bytes) -> pd.DataFrame:
-    # двухуровневая шапка, как в твоём примере
+    # двухуровневая шапка, как в примере
     return pd.read_excel(io.BytesIO(xls_bytes), sheet_name="Payments", header=[0, 1])
 
 
 def _flatten_payments(raw: pd.DataFrame) -> pd.DataFrame:
-    # пропускаем вторую строку шапки
-    df = raw.iloc[1:].copy()
+    df = raw.iloc[1:].copy()  # пропускаем вторую строку шапки
     df.columns = [
         "_".join([str(c) for c in col if str(c) != "nan"]).strip()
         for col in df.columns
@@ -81,7 +79,6 @@ def _flatten_payments(raw: pd.DataFrame) -> pd.DataFrame:
 
 def _prepare_payments(df_flat: pd.DataFrame) -> pd.DataFrame:
     df = df_flat.copy()
-    # точные имена колонок из твоего файла
     date_col = "ДАННЫЕ ПО ВЫПИСКЕ_Дата проводки"
     reg_col = "ДАННЫЕ ПО ВЫПИСКЕ_Рег.номер"
     debit_col = "ДАННЫЕ ПО ВЫПИСКЕ_Сумма по дебету"
@@ -121,7 +118,7 @@ def _fill_template_r(
     # row 0, col 0: дата
     set_cell_text(top.cell(0, 0), stmt_date_str)
 
-    # row 1, col 0: банк
+    # row 1, col 0: банк (берём статичное значение из header_data)
     set_cell_text(top.cell(1, 0), header_data["bank_name"])
 
     # row 2: "Дата формирования выписки ..."
@@ -151,7 +148,7 @@ def _fill_template_r(
     # row 0 – заголовки, row 1 – подзаголовки, row 2 – шаблон строки
     template_row_tr = tbl.rows[2]._tr
 
-    # очищаем строки ниже шаблонной строки (оставляем строки 0,1,2)
+    # очищаем строки ниже шаблонной (оставляем 0,1,2)
     while len(tbl.rows) > 3:
         tbl_el.remove(tbl.rows[-1]._tr)
 
@@ -185,7 +182,7 @@ def _fill_template_r(
 
         have_rows = True
 
-    # если добавили реальные строки — удалим шаблонную строку (индекс 2)
+    # если добавили реальные строки — удаляем шаблонную (индекс 2)
     if have_rows and len(tbl.rows) > 3:
         try:
             tbl_el.remove(tbl.rows[2]._tr)
@@ -206,16 +203,16 @@ def _update_caseid_with_sums(case_df: pd.DataFrame, payments_df: pd.DataFrame) -
     return result
 
 
-def _build_result_excel(case_df: pd.DataFrame, payments_raw: pd.DataFrame) -> bytes:
+def _build_result_excel(case_df: pd.DataFrame, payments_raw: pd.DataFrame) -> io.BytesIO:
     """
-    Собираем итоговый Excel:
+    Итоговый Excel:
     - CaseID — плоский, без индекса
-    - Payments — как в исходном файле (MultiIndex колонок), поэтому index не убираем
+    - Payments — как в исходном файле (MultiIndex), index не убираем
     """
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine="openpyxl") as writer:
         case_df.to_excel(writer, sheet_name="CaseID", index=False)
-        payments_raw.to_excel(writer, sheet_name="Payments")  # без index=False
+        payments_raw.to_excel(writer, sheet_name="Payments")
     out.seek(0)
     return out
 
@@ -239,17 +236,8 @@ def run():
         stmt_date = st.date_input("Дата формирования выписки", value=today)
         stmt_time = st.time_input("Время формирования выписки", value=now)
 
-        bank_name = st.text_input("Банк", value="ПАО СБЕРБАНК")
-        account_number = st.text_input("Номер счета", value="40702810738000100334")
-        company_name = st.text_input(
-            "Наименование компании",
-            value='ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ "РУССКИЙ ИНФОРМАЦИОННЫЙ СЕРВИС"',
-        )
-
         period_from = st.date_input("Период с", value=today.replace(month=1, day=1))
         period_to = st.date_input("Период по", value=today)
-
-        currency = st.text_input("Валюта", value="Российский рубль")
 
         submitted = st.form_submit_button("Сформировать выписки")
 
@@ -261,7 +249,7 @@ def run():
         return
 
     # читаем шаблон из репозитория
-    template_path = "Template R.docx"   # если лежит рядом с app.py / statement_app.py
+    template_path = "Template R.docx"   # файл лежит в корне репозитория
 
     try:
         with open(template_path, "rb") as f:
@@ -278,29 +266,34 @@ def run():
     payments_flat = _flatten_payments(payments_raw)
     payments = _prepare_payments(payments_flat)
 
+    # статичные значения шапки
     header_data = {
         "stmt_date": stmt_date,
         "stmt_time": stmt_time,
-        "bank_name": bank_name,
-        "account_number": account_number,
-        "company_name": company_name,
+        "bank_name": "ПАО СБЕРБАНК",
+        "account_number": "40702810738000100334",
+        "company_name": 'ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ "РУССКИЙ ИНФОРМАЦИОННЫЙ СЕРВИС"',
         "period_from": period_from,
         "period_to": period_to,
-        "currency": currency,
+        "currency": "Российский рубль",
     }
 
     reg_col_payments = "ДАННЫЕ ПО ВЫПИСКЕ_Рег.номер"
 
+    # сразу считаем Excel с суммами
+    case_updated = _update_caseid_with_sums(case_df, payments)
+    result_excel = _build_result_excel(case_updated, payments_raw)
+
+    # создаём один ZIP, куда кладём и выписки, и Excel
     zip_buf = io.BytesIO()
     with zipfile.ZipFile(zip_buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        # выписки по каждому Рег.номеру с шаблоном R
         for _, row in case_df.iterrows():
             reg_num = row["Рег.номер"]
-            template_code = str(row["Шалон"]).strip()  # в файле так и написано: 'Шалон'
+            template_code = str(row["Шалон"]).strip()
 
             if template_code != "R":
-                # пока работаем только с шаблоном R
                 continue
-
             if pd.isna(reg_num):
                 continue
 
@@ -310,33 +303,23 @@ def run():
                 continue
 
             case_payments = payments[payments[reg_col_payments] == reg_int]
-
             if case_payments.empty:
                 continue
 
             docx_bytes = _fill_template_r(template_bytes, header_data, case_payments)
-
             filename = f"{reg_int}.docx"
             zf.writestr(filename, docx_bytes)
 
-    zip_buf.seek(0)
+        # добавляем Excel внутрь того же архива
+        zf.writestr("CaseID_with_sums.xlsx", result_excel.getvalue())
 
-    # обновляем CaseID суммой платежей
-    case_updated = _update_caseid_with_sums(case_df, payments)
-    result_excel = _build_result_excel(case_updated, payments_raw)
+    zip_buf.seek(0)
 
     st.success("Выписки сформированы.")
 
     st.download_button(
-        "⬇️ Скачать архив выписок (ZIP)",
+        "⬇️ Скачать архив (выписки + Excel)",
         data=zip_buf.getvalue(),
-        file_name="statements_R.zip",
+        file_name="statements_R_with_excel.zip",
         mime="application/zip",
-    )
-
-    st.download_button(
-        "⬇️ Скачать обновлённый Excel (с колонкой «Сума платежей»)",
-        data=result_excel.getvalue(),
-        file_name=uploaded_xlsx.name.replace(".xlsx", "_with_sums.xlsx"),
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
