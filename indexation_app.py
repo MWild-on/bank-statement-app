@@ -596,7 +596,7 @@ def process_workbook(uploaded_file, cutoff_date: dt.date):
 
     main_df["Сумма индексации (расчёт)"] = new_index_col
 
-    # ----- Excel в память -----
+ # ----- Excel в память -----
     excel_buffer = io.BytesIO()
     with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
         main_df.to_excel(writer, sheet_name="Основной", index=False)
@@ -605,16 +605,21 @@ def process_workbook(uploaded_file, cutoff_date: dt.date):
     excel_buffer.seek(0)
     excel_bytes = excel_buffer.getvalue()
 
-    # ----- ZIP с PDF в память -----
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+    # ----- ЕДИНЫЙ ZIP: Excel + все PDF -----
+    combined_zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(combined_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        # Excel-файл
+        zf.writestr("Файл для расчета_с_индексацией.xlsx", excel_bytes)
+
+        # PDF-отчёты (в папке pdf/)
         for fname, fbytes in pdf_files:
-            zf.writestr(fname, fbytes)
-    zip_buffer.seek(0)
-    zip_bytes = zip_buffer.getvalue()
+            zf.writestr(f"pdf/{fname}", fbytes)
 
-    return excel_bytes, zip_bytes, main_df, effective_cutoff
+    combined_zip_buffer.seek(0)
+    combined_zip_bytes = combined_zip_buffer.getvalue()
 
+    # теперь возвращаем единый архив
+    return combined_zip_bytes, main_df, effective_cutoff
 
 # =========================
 #  Streamlit entry point для вкладки
