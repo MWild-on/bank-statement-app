@@ -1,4 +1,4 @@
-# statement_app.py — раздел "Создание выписки (шаблон R)"
+# statement_app.py — раздел "Создание выписки (шаблоны R и W)"
 
 import io
 import zipfile
@@ -93,14 +93,16 @@ def _prepare_payments(df_flat: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _fill_template_r(
+def _fill_template(
     template_bytes: bytes,
     header_data: dict,
     payments_case_df: pd.DataFrame,
 ) -> bytes:
     """
-    Сформировать один docx по шаблону Template R (для одного Рег.номера).
+    Сформировать один docx по шаблону (R или W) для одного Рег.номера.
     Все вставляемые тексты — Times New Roman.
+    Из шапки меняем только дату/время и период, статические поля (банк, счёт,
+    компания, валюта) берём из самого шаблона.
     """
     doc = Document(io.BytesIO(template_bytes))
 
@@ -115,31 +117,19 @@ def _fill_template_r(
         f"по {header_data['period_to'].strftime('%d.%m.%Y')}"
     )
 
-    # row 0, col 0: дата
+    # row 0, col 0: дата формирования (только дата)
     set_cell_text(top.cell(0, 0), stmt_date_str)
-
-    # row 1, col 0: банк (статично)
-    set_cell_text(top.cell(1, 0), header_data["bank_name"])
 
     # row 2: "Дата формирования выписки ..."
     msg = f"Дата формирования выписки {stmt_date_str} в {stmt_time_str}"
     set_cell_text(top.cell(2, 0), msg)
     set_cell_text(top.cell(2, 1), msg)
 
-    # row 3: заголовок и счёт
-    set_cell_text(top.cell(3, 0), "ВЫПИСКА ОПЕРАЦИЙ ПО ЛИЦЕВОМУ СЧЕТУ")
-    set_cell_text(top.cell(3, 1), "ВЫПИСКА ОПЕРАЦИЙ ПО ЛИЦЕВОМУ СЧЕТУ")
-    set_cell_text(top.cell(3, 2), header_data["account_number"])
-
-    # row 4, col 2: наименование компании
-    set_cell_text(top.cell(4, 2), header_data["company_name"])
-
-    # row 5, col 2 и 3: период
+    # Период: row 5, col 2 и 3
     set_cell_text(top.cell(5, 2), period_str)
     set_cell_text(top.cell(5, 3), period_str)
 
-    # row 6, col 1: валюта
-    set_cell_text(top.cell(6, 1), header_data["currency"])
+    # Банк, счёт, компания, валюта НЕ трогаем — они зашиты в каждом шаблоне
 
     # ---------- НИЖНЯЯ ТАБЛИЦА (ОПЕРАЦИИ) ----------
     tbl = doc.tables[1]
@@ -220,7 +210,7 @@ def _build_result_excel(case_df: pd.DataFrame, payments_raw: pd.DataFrame) -> io
 # ===== ОСНОВНАЯ ФУНКЦИЯ РАЗДЕЛА =====
 
 def run():
-    st.header("Создание выписки (шаблон R)")
+    st.header("Создание выписки (шаблоны R и W)")
 
     uploaded_xlsx = st.file_uploader(
         "Загрузите Excel с листами CaseID и Payments",
@@ -248,78 +238,19 @@ def run():
         st.error("Нужно загрузить Excel с листами CaseID и Payments.")
         return
 
-    # читаем шаблон из репозитория
-    template_path = "Template R.docx"   # файл лежит в корне репозитория
+    # читаем шаблоны из репозитория
+    template_r_path = "Template R.docx"
+    template_w_path = "Template W.docx"
+
+    template_r_bytes = None
+    template_w_bytes = None
 
     try:
-        with open(template_path, "rb") as f:
-            template_bytes = f.read()
+        with open(template_r_path, "rb") as f:
+            template_r_bytes = f.read()
     except FileNotFoundError:
-        st.error(f"Не найден файл шаблона: {template_path}. Проверь имя и путь в репозитории.")
+        st.error(f"Не найден файл шаблона: {template_r_path}.")
         return
 
-    xls_bytes = uploaded_xlsx.read()
-
-    # читаем и готовим данные
-    case_df = _load_caseid_df(xls_bytes)
-    payments_raw = _load_payments_raw(xls_bytes)
-    payments_flat = _flatten_payments(payments_raw)
-    payments = _prepare_payments(payments_flat)
-
-    # статичные значения шапки
-    header_data = {
-        "stmt_date": stmt_date,
-        "stmt_time": stmt_time,
-        "bank_name": "ПАО СБЕРБАНК",
-        "account_number": "40702810738000100334",
-        "company_name": 'ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ "РУССКИЙ ИНФОРМАЦИОННЫЙ СЕРВИС"',
-        "period_from": period_from,
-        "period_to": period_to,
-        "currency": "Российский рубль",
-    }
-
-    reg_col_payments = "ДАННЫЕ ПО ВЫПИСКЕ_Рег.номер"
-
-    # считаем Excel с суммами
-    case_updated = _update_caseid_with_sums(case_df, payments)
-    result_excel = _build_result_excel(case_updated, payments_raw)
-
-    # создаём один ZIP, куда кладём и выписки, и Excel
-    zip_buf = io.BytesIO()
-    with zipfile.ZipFile(zip_buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-        # выписки по каждому Рег.номеру с шаблоном R
-        for _, row in case_df.iterrows():
-            reg_num = row["Рег.номер"]
-            template_code = str(row["Шалон"]).strip()
-
-            if template_code != "R":
-                continue
-            if pd.isna(reg_num):
-                continue
-
-            try:
-                reg_int = int(reg_num)
-            except Exception:
-                continue
-
-            case_payments = payments[payments[reg_col_payments] == reg_int]
-            if case_payments.empty:
-                continue
-
-            docx_bytes = _fill_template_r(template_bytes, header_data, case_payments)
-            filename = f"{reg_int}.docx"
-            zf.writestr(filename, docx_bytes)
-
-        # добавляем Excel внутрь того же архива
-        zf.writestr("CaseID_with_sums.xlsx", result_excel.getvalue())
-
-    zip_buf.seek(0)
-
-    st.success("Выписки сформированы.")
-
-    st.download_button(
-        "⬇️ Скачать архив (выписки + Excel)",
-        data=zip_buf.getvalue(),
-        file_name="statements_R_with_excel.zip",
-        mime="application/zip",
-    )
+    try:
+        wit
