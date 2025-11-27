@@ -118,7 +118,7 @@ def _fill_template_r(
     # row 0, col 0: дата
     set_cell_text(top.cell(0, 0), stmt_date_str)
 
-    # row 1, col 0: банк (берём статичное значение из header_data)
+    # row 1, col 0: банк (статично)
     set_cell_text(top.cell(1, 0), header_data["bank_name"])
 
     # row 2: "Дата формирования выписки ..."
@@ -280,7 +280,7 @@ def run():
 
     reg_col_payments = "ДАННЫЕ ПО ВЫПИСКЕ_Рег.номер"
 
-    # сразу считаем Excel с суммами
+    # считаем Excel с суммами
     case_updated = _update_caseid_with_sums(case_df, payments)
     result_excel = _build_result_excel(case_updated, payments_raw)
 
