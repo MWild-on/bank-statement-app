@@ -6,28 +6,29 @@ import indexation_app
 import statement_app  # 🔹 НОВЫЙ МОДУЛЬ
 
 # ===== Простая авторизация =====
-CREDENTIALS = {
-    "Mariam": "Mariam4321",
-    "MM": "MM5432",
-    "MO": "1",
-}
+import streamlit as st
 
-def login():
-    st.title("🔐 Авторизация")
-    with st.form("login_form"):
-        username = st.text_input("Логин")
-        password = st.text_input("Пароль", type="password")
-        submitted = st.form_submit_button("Войти")
-        if submitted:
-            if username in CREDENTIALS and CREDENTIALS[username] == password:
-                st.session_state["auth"] = True
-                st.session_state["user"] = username
-            else:
-                st.error("Неверный логин или пароль")
+def check_password():
+    def password_entered():
+        if st.session_state["password"] == st.secrets["app_password"]:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"] 
+        else:
+            st.session_state["password_correct"] = False
 
-if "auth" not in st.session_state or not st.session_state["auth"]:
-    login()
+    if "password_correct" not in st.session_state:
+        st.text_input("Пароль:", type="password", on_change=password_entered, key="password")
+        return False
+    elif not st.session_state["password_correct"]:
+        st.text_input("Пароль:", type="password", on_change=password_entered, key="password")
+        st.error("Неверный пароль")
+        return False
+    else:
+        return True
+
+if not check_password():
     st.stop()
+
 
 
 def main():
