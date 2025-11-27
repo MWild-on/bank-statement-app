@@ -655,25 +655,19 @@ def run():
 
         if st.button("Рассчитать индексацию"):
             try:
-                excel_bytes, zip_bytes, main_df, effective_cutoff = process_workbook(
+                zip_bytes, main_df, effective_cutoff = process_workbook(
                     uploaded_file, cutoff_date
                 )
 
                 st.info(f"Фактическая крайняя дата расчёта: {effective_cutoff}")
 
                 st.download_button(
-                    label="Скачать Excel с индексацией",
-                    data=excel_bytes,
-                    file_name="Файл для расчета_с_индексацией.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                )
-
-                st.download_button(
-                    label="Скачать ZIP с PDF-отчётами",
+                    label="Скачать архив (Excel + PDF-отчёты)",
                     data=zip_bytes,
-                    file_name="pdf_otchety.zip",
+                    file_name="indexation_results.zip",
                     mime="application/zip",
                 )
+
 
             except Exception as e:
                 st.error(f"Ошибка при обработке файла: {e}")
