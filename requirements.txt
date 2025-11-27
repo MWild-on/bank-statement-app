@@ -4,3 +4,4 @@ openpyxl
 natasha
 pymorphy2-dicts-ru
 reportlab
+python-docx
