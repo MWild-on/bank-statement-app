@@ -1,4 +1,4 @@
-# statement_app.py — раздел "Создание выписки (шаблоны R и W)"
+# statement_app.py — раздел "Создание выписки"
 
 import io
 import zipfile
@@ -210,7 +210,7 @@ def _build_result_excel(case_df: pd.DataFrame, payments_raw: pd.DataFrame) -> io
 # ===== ОСНОВНАЯ ФУНКЦИЯ РАЗДЕЛА =====
 
 def run():
-    st.header("Создание выписки (шаблоны R и W)")
+    st.header("Создание выписки")
 
     uploaded_xlsx = st.file_uploader(
         "Загрузите Excel с листами CaseID и Payments",
