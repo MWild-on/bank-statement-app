@@ -397,6 +397,8 @@ def generate_pdf_bytes_for_debt(
     # -----------------------------
     story.append(Paragraph("Расчёт индексации присуждённых денежных сумм", style_title))
 
+    story.append(Spacer(1, 12))
+    
     order_date = pd.to_datetime(main_row["Дата вынесения приказа"]).date()
     base_debt = Decimal(str(main_row["Сумма платежей с декабря 2024"]))
     total_days = (cutoff_date - order_date).days + 1
