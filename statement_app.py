@@ -148,9 +148,14 @@ def _fill_template_r(
         cells[7].text = str(r.get(bank_col, "") or "")
         cells[8].text = str(r.get(purpose_col, "") or "")
 
-    # удаляем исходную шаблонную строку, если добавили реальные
+       # удаляем исходную шаблонную строку, если добавили реальные
     if len(tbl.rows) > 3:
-        tbl_el.remove(template_row_tr)
+        try:
+            tbl_el.remove(tbl.rows[2]._tr)  # удаляем строку по текущему индексу 2
+        except ValueError:
+            # если строки уже нет в таблице — просто игнорируем
+            pass
+
 
     out_buf = io.BytesIO()
     doc.save(out_buf)
