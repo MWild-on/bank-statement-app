@@ -527,6 +527,169 @@ def generate_pdf_bytes_for_debt(
     return buffer.getvalue()
 
 # ============================================================
+#       НОВАЯ ЛОГИКА — ПОМЕСЯЧНЫЙ РАСЧЁТ КАК В WORD
+# ============================================================
+
+def compute_month_factor(cpi_value: Decimal, prop: Decimal) -> Decimal:
+    """
+    Рассчитывает коэффициент месяца:
+    factor = 1 + ((ИПЦ - 100) / 100) * prop
+    """
+    delta = (cpi_value - Decimal("100")) / Decimal("100")
+    return Decimal("1") + delta * prop
+
+
+def compute_indexation_monthly(amount: Decimal, start_date: dt.date, end_date: dt.date, cpi_map) -> Decimal:
+    """
+    Индексация за период [start_date; end_date] помесячно.
+    Пропорция первого и последнего месяца = (число дней / дней в месяце).
+    """
+    y, m = start_date.year, start_date.month
+    curr = start_date
+    total_factor = Decimal("1.0")
+
+    while True:
+        dim = days_in_month(y, m)
+        cpi = cpi_map[(y, m)]
+
+        # месяц полностью внутри периода
+        month_first = dt.date(y, m, 1)
+        month_last = dt.date(y, m, dim)
+
+        if curr == start_date and curr.year == end_date.year and curr.month == end_date.month:
+            # один месяц
+            prop = Decimal(end_date.day - start_date.day + 1) / Decimal(dim)
+            F = compute_month_factor(cpi, prop)
+            total_factor *= F
+            break
+
+        if curr.year == start_date.year and curr.month == start_date.month:
+            # первый месяц
+            prop = Decimal(dim - start_date.day + 1) / Decimal(dim)
+            F = compute_month_factor(cpi, prop)
+            total_factor *= F
+
+        elif y == end_date.year and m == end_date.month:
+            # последний месяц
+            prop = Decimal(end_date.day) / Decimal(dim)
+            F = compute_month_factor(cpi, prop)
+            total_factor *= F
+            break
+
+        else:
+            # полный месяц
+            F = compute_month_factor(cpi, Decimal("1"))
+            total_factor *= F
+
+        # переход к следующему месяцу
+        y, m = next_month(y, m)
+        curr = dt.date(y, m, 1)
+
+    return (amount * total_factor - amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def compute_period_indexation(amount: Decimal, start_date: dt.date, end_date: dt.date, cpi_map) -> Decimal:
+    """ Обёртка над compute_indexation_monthly() """
+    if amount <= 0 or start_date > end_date:
+        return Decimal("0.00")
+    return compute_indexation_monthly(amount, start_date, end_date, cpi_map)
+
+
+def compute_debt_periods(
+    reg_num: int,
+    order_date: dt.date,
+    base_amount: Decimal,
+    payments_df: pd.DataFrame,
+    cpi_map,
+    cutoff_date: dt.date,
+):
+    """
+    Генерирует список периодов между платежами:
+    [
+        {
+            period_start: ...
+            period_end: ...
+            debt_before: ...
+            payment_date: ...
+            payment_amount: ...
+            debt_after_payment: ...
+            indexation: ...
+        }
+    ]
+    Полностью соответствует Word-образцу.
+    """
+
+    # только платежи по текущему рег. номеру
+    pays = payments_df[payments_df["Рег. номер"] == reg_num].copy()
+    pays["date"] = pd.to_datetime(pays["Дата платежа"]).dt.date
+    pays = pays[pays["date"] <= cutoff_date]
+    pays = pays[pays["Сумма платежа"] > 0]
+    pays = pays.sort_values("date")
+
+    periods = []
+    remaining = base_amount
+    current_start = order_date
+
+    if pays.empty:
+        # один период — от приказа до cutoff_date
+        ind = compute_period_indexation(remaining, order_date, cutoff_date, cpi_map)
+        periods.append({
+            "period_start": order_date,
+            "period_end": cutoff_date,
+            "debt_before": remaining,
+            "payment_date": None,
+            "payment_amount": Decimal("0.00"),
+            "debt_after_payment": remaining,
+            "indexation": ind,
+        })
+        return periods
+
+    # если есть платежи
+    for _, row in pays.iterrows():
+        pay_date = row["date"]
+        pay_amount = Decimal(str(row["Сумма платежа"]))
+
+        period_end = min(pay_date, cutoff_date)
+
+        ind = compute_period_indexation(remaining, current_start, period_end, cpi_map)
+
+        new_remaining = remaining - pay_amount
+
+        periods.append({
+            "period_start": current_start,
+            "period_end": period_end,
+            "debt_before": remaining,
+            "payment_date": pay_date,
+            "payment_amount": pay_amount,
+            "debt_after_payment": new_remaining,
+            "indexation": ind,
+        })
+
+        remaining = new_remaining
+        current_start = pay_date + dt.timedelta(days=1)
+
+        if current_start > cutoff_date:
+            return periods
+
+    # хвост после последнего платежа
+    if remaining > 0 and current_start <= cutoff_date:
+        ind = compute_period_indexation(remaining, current_start, cutoff_date, cpi_map)
+
+        periods.append({
+            "period_start": current_start,
+            "period_end": cutoff_date,
+            "debt_before": remaining,
+            "payment_date": None,
+            "payment_amount": Decimal("0.00"),
+            "debt_after_payment": remaining,
+            "indexation": ind,
+        })
+
+    return periods
+
+
+
+# ============================================================
 #      PROCESS WORKBOOK: Excel → расчёт → Excel + ZIP(PDF)
 # ============================================================
 
