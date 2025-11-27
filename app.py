@@ -8,6 +8,7 @@ import indexation_app
 CREDENTIALS = {
     "Mariam": "Mariam4321",
     "MM": "MM5432",
+    "MO": "1",
 }
 
 def login():
