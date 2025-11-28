@@ -11,7 +11,7 @@ from docx import Document   # pip install python-docx
 from docx.shared import Pt
 from docx.oxml.ns import qn
 
-from ui_common import apply_global_css  # ← добавили общий стиль
+from ui_common import apply_global_css, section_header
 
 
 # ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ТЕКСТА =====
@@ -230,15 +230,12 @@ def _build_result_excel(case_df: pd.DataFrame, payments_raw: pd.DataFrame) -> io
 from ui_common import apply_global_css  # убедись, что импорт есть вверху файла
 
 def run():
-    # общий CSS как в app.py
+    # общий стиль + единый заголовок
     apply_global_css()
 
-    # такой же тип заголовка, как в индексации
-    st.title("Создание выписки")
-
-    # описание в том же стиле, что и в indexation_app.py
-    st.write(
-        "Загрузите Excel-файл с листами **CaseID** и **Payments**. "
+    section_header(
+        "Создание выписки",
+        "Загрузите Excel-файл с листами CaseID и Payments. "
         "Параметры шапки выписки задаются ниже."
     )
 
