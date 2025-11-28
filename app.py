@@ -19,42 +19,36 @@ st.set_page_config(
 # ===== Простая авторизация =====
 
 def check_auth():
-    """Проверка логина и пароля по st.secrets['users']."""
-    users = st.secrets["users"]  # это dict: {login: password}
+    """Авторизация по логину и паролю."""
+    users = st.secrets["users"]  # {login: password}
 
-    def login_entered():
-        login = st.session_state.get("login", "").strip()
-        password = st.session_state.get("password", "")
-
-        if login in users and password == users[login]:
-            st.session_state["auth_ok"] = True
-            st.session_state["current_user"] = login
-        else:
-            st.session_state["auth_ok"] = False
-
-    # первичная инициализация флагов
+    # Инициализация
     if "auth_ok" not in st.session_state:
         st.session_state["auth_ok"] = False
         st.session_state["current_user"] = None
 
-    # если ещё не залогинен — показываем форму
-    if not st.session_state["auth_ok"]:
-        st.markdown("### Добро пожаловать в W001-app")
+    # Если уже авторизован — сразу пропускаем
+    if st.session_state["auth_ok"]:
+        return True
 
-        st.text_input("Логин:", key="login")
-        st.text_input("Пароль:", type="password", key="password")
+    # --- Форма логина ---
+    st.markdown("### Добро пожаловать в W001-app")
 
-        if st.button("Войти"):
-            login_entered()
+    login = st.text_input("Логин:", key="login")
+    password = st.text_input("Пароль:", type="password", key="password")
 
-        if (
-            st.session_state.get("login")
-            and st.session_state.get("password")
-            and not st.session_state["auth_ok"]
-        ):
+    if st.button("Войти"):
+        if login in users and password == users[login]:
+            st.session_state["auth_ok"] = True
+            st.session_state["current_user"] = login
+
+            # Ключевой момент — сразу перезапускаем приложение
+            st.rerun()
+        else:
             st.error("Неверный логин или пароль")
 
-        return False
+    return False
+
 
     # если авторизация прошла успешно
     return True
