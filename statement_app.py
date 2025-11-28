@@ -64,8 +64,19 @@ def _load_caseid_df(xls_bytes: bytes) -> pd.DataFrame:
 
 
 def _load_payments_raw(xls_bytes: bytes) -> pd.DataFrame:
-    # двухуровневая шапка, как в примере
-    return pd.read_excel(io.BytesIO(xls_bytes), sheet_name="Payments", header=[0, 1])
+    # читаем с сохранением текстовых колонок без преобразования
+    return pd.read_excel(
+        io.BytesIO(xls_bytes),
+        sheet_name="Payments",
+        header=[0, 1],
+        dtype = {
+            ("ДАННЫЕ ПО ВЫПИСКЕ", "№ документа"): str,
+            ("ДАННЫЕ ПО ВЫПИСКЕ", "ВО"): str,
+        }
+
+# pd.read_excel(..., dtype=dtype)
+
+    )
 
 
 def _flatten_payments(raw: pd.DataFrame) -> pd.DataFrame:
