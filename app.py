@@ -28,22 +28,22 @@ def check_auth():
     if st.session_state["auth_ok"]:
         return True
 
-    st.markdown("### Добро пожаловать в W001-app")
-
-    # три колонки, форма в средней → поля уже
-    col_left, col_center, col_right = st.columns([1, 2, 3])
+    # три колонки: центрируем всю форму
+    col_left, col_center, col_right = st.columns([1, 2, 1])
 
     with col_center:
-        # дополнительный контейнер, ещё чуть сужаем
+        # небольшой ограничитель ширины, чтобы поля не были слишком широкими
         st.markdown(
-            "<div style='max-width: 480px;'>",
+            "<div style='max-width: 480px; margin: 0 auto;'>",
             unsafe_allow_html=True,
         )
+
+        st.markdown("### Добро пожаловать в W001-app")
 
         login = st.text_input("Логин:", key="login")
         password = st.text_input("Пароль:", type="password", key="password")
 
-        if st.button("Войти"):
+        if st.button("Войти", use_container_width=False):
             if login in users and password == users[login]:
                 st.session_state["auth_ok"] = True
                 st.session_state["current_user"] = login
@@ -54,6 +54,7 @@ def check_auth():
         st.markdown("</div>", unsafe_allow_html=True)
 
     return False
+
 
 
     return True
