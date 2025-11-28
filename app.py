@@ -3,15 +3,22 @@
 import streamlit as st
 import converter_app
 import indexation_app
-import statement_app  # 🔹 НОВЫЙ МОДУЛЬ
+import statement_app
+
+from ui_common import apply_global_css  # общий стиль для всех страниц
+
+# Сначала настраиваем страницу (до любых других st.*)
+st.set_page_config(
+    page_title="Bank tools",
+    layout="wide",
+)
 
 # ===== Простая авторизация =====
-import streamlit as st
 
-import streamlit as st
 
 def check_password():
-    # Функция проверки пароля
+    """Проверка пароля из st.secrets['app_password']."""
+
     def password_entered():
         entered = st.session_state.get("password", "")
         if entered == st.secrets["app_password"]:
@@ -46,13 +53,9 @@ if not check_password():
     st.stop()
 
 
-
-
 def main():
-    st.set_page_config(
-        page_title="Bank tools",
-        layout="wide",
-    )
+    # применяем единый CSS для всех разделов
+    apply_global_css()
 
     st.sidebar.title("Навигация")
     page = st.sidebar.radio(
@@ -65,6 +68,8 @@ def main():
     elif page == "Индексация":
         indexation_app.run()
     elif page == "Создание выписки":
-        statement_app.run()  
+        statement_app.run()
+
+
 if __name__ == "__main__":
     main()
