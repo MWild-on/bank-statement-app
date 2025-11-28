@@ -7,7 +7,7 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
-from ui_common import section_header
+from ui_common import section_header, apply_global_css
 
 
 # ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
@@ -192,10 +192,12 @@ def process_bank_statement(df: pd.DataFrame) -> pd.DataFrame:
 # ===== ОСНОВНАЯ ФУНКЦИЯ МОДУЛЯ =====
 
 def run():
-    # Общий стиль заголовка (как в других разделах)
+    # ← единый CSS, как на остальных вкладках!
+    apply_global_css()
+
     section_header(
         "Анализ банковской выписки",
-        "Загрузите файл выписки. Я выделю только нужные операции и соберу таблицу для дальнейшей работы.",
+        "Загрузите файл выписки. Я выделю только нужные операции и соберу таблицу..."
     )
 
     uploaded_file = st.file_uploader(
