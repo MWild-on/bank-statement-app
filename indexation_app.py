@@ -387,7 +387,7 @@ def generate_pdf_bytes_for_debt(
     # -----------------------------
     # Заголовок
     # -----------------------------
-    story.append(Paragraph("Расчёт индексации присуждённых денежных сумм", style_title))
+    story.append(Paragraph("Расчёт индексации присуждённых сумм", style_title))
     story.append(Spacer(1, 12))
 
     order_date = pd.to_datetime(main_row["Дата вынесения приказа"]).date()
@@ -630,7 +630,7 @@ def run():
     # общий стиль, такой же как в app.py
     apply_global_css()
 
-    st.title("Расчёт индексации присуждённых денежных сумм")
+    st.title("Расчёт индексации присуждённых сумм")
 
     st.write(
         "Загрузите Excel-файл со страницами **«Основной»**, "
