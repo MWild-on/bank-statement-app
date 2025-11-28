@@ -55,8 +55,13 @@ def _format_amount(x) -> str:
     if pd.isna(x) or x == 0:
         return ""
     s = f"{float(x):,.2f}"          # 12345.6 -> 12,345.60
-    s = s.replace(",", "X").replace(".", ",").replace("X", " ")
+
+    # используем НЕРАЗРЫВНЫЙ пробел между тысячами
+    nbsp = "\u00A0"
+    s = s.replace(",", "X").replace(".", ",").replace("X", nbsp)
+
     return s
+
 
 
 def _load_caseid_df(xls_bytes: bytes) -> pd.DataFrame:
