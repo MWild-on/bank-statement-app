@@ -227,11 +227,20 @@ def _build_result_excel(case_df: pd.DataFrame, payments_raw: pd.DataFrame) -> io
 
 # ===== ОСНОВНАЯ ФУНКЦИЯ РАЗДЕЛА =====
 
+from ui_common import apply_global_css  # убедись, что импорт есть вверху файла
+
 def run():
-    # общий CSS, такой же как в app.py
+    # общий CSS как в app.py
     apply_global_css()
 
-    st.header("Создание выписки")
+    # такой же тип заголовка, как в индексации
+    st.title("Создание выписки")
+
+    # описание в том же стиле, что и в indexation_app.py
+    st.write(
+        "Загрузите Excel-файл с листами **CaseID** и **Payments**. "
+        "Параметры шапки выписки задаются ниже."
+    )
 
     uploaded_xlsx = st.file_uploader(
         "Загрузите Excel с листами CaseID и Payments",
