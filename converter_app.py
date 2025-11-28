@@ -11,6 +11,22 @@ def run():
     # ===== Заголовок раздела (единый стиль) =====
     section_header("Анализ банковской выписки")
     # ===== Вспомогательные функции =====
+    def run():
+        section_header(
+            title="Анализ банковской выписки",
+            subtitle="Загрузите файл выписки, мы извлечём нужные поля и сформируем удобный Excel."
+        )
+    
+        st.write("")  # небольшой отступ
+    
+        with st.container():
+            uploaded_file = st.file_uploader(
+                "Загрузите файл выписки (Excel)",
+                type=["xlsx", "xls"],
+                help="Поддерживаются стандартные выгрузки Сбера в формате XLS/XLSX."
+            )
+
+
     
     def extract_bank_account(text):
         match = re.search(r'\b\d{20}\b', str(text))
@@ -145,7 +161,7 @@ def run():
     
     # ===== Интерфейс Streamlit =====
     
-    #st.set_page_config(page_title="Обработка выписки", layout="centered")
+
     #st.title("📄 Анализ банковской выписки")
     
     # === История и подсчёты закомментированы ===
@@ -169,15 +185,22 @@ def run():
             st.success("Файл успешно загружен и распознан!")
             df_result = process_bank_statement(df)
     
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.subheader("✅ Результат")
-            with col2:
-                output = BytesIO()
-                df_result.to_excel(output, index=False, engine='openpyxl')
-                st.download_button("📥 Скачать результат (Excel)", data=output.getvalue(), file_name="результат.xlsx")
-    
-            st.dataframe(df_result)
+            st.success("Файл успешно загружен и обработан.")
+            
+            output = BytesIO()
+            df_result.to_excel(output, index=False, engine="openpyxl")
+            output.seek(0)
+            
+            st.download_button(
+                "📥 Скачать результат (Excel)",
+                data=output.getvalue(),
+                file_name="результат_выписки.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+            
+            st.markdown("#### Предпросмотр результата")
+            st.dataframe(df_result, use_container_width=True)
+
     
         except Exception as e:
             st.error(f"Ошибка при обработке: {e}")
