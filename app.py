@@ -70,7 +70,11 @@ if not check_auth():
 def main():
     # применяем единый CSS для всех разделов
     apply_global_css()
+    user = st.session_state.get("current_user", "—")
+    st.sidebar.title("Навигация")
+    st.sidebar.caption(f"Пользователь: {user}")
 
+    
     st.sidebar.title("Навигация")
     page = st.sidebar.radio(
         "",
