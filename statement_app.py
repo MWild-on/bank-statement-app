@@ -11,6 +11,8 @@ from docx import Document   # pip install python-docx
 from docx.shared import Pt
 from docx.oxml.ns import qn
 
+from ui_common import apply_global_css  # ← добавили общий стиль
+
 
 # ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ТЕКСТА =====
 
@@ -226,6 +228,9 @@ def _build_result_excel(case_df: pd.DataFrame, payments_raw: pd.DataFrame) -> io
 # ===== ОСНОВНАЯ ФУНКЦИЯ РАЗДЕЛА =====
 
 def run():
+    # общий CSS, такой же как в app.py
+    apply_global_css()
+
     st.header("Создание выписки")
 
     uploaded_xlsx = st.file_uploader(
@@ -315,7 +320,8 @@ def run():
             except Exception:
                 continue
 
-            case_payments = payments[payments[reg_col_payments] == reg_int]
+            case_payments = payments[reg_col_payments] == reg_int
+            case_payments = payments[case_payments]
             if case_payments.empty:
                 continue
 
