@@ -15,40 +15,30 @@ st.set_page_config(
 
 # ===== Простая авторизация =====
 
-
-# ===== Простая авторизация =====
-
 def check_auth():
     """Авторизация по логину и паролю."""
-
-    # ===== CSS: делаем форму уже и центрируем =====
-    st.markdown("""
-        <style>
-            .auth-box {
-                max-width: 600px;
-                margin-left: auto;
-                margin-right: auto;
-            }
-            .auth-box input {
-                height: 48px !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-
     users = st.secrets["users"]
 
+    # инициализация
     if "auth_ok" not in st.session_state:
         st.session_state["auth_ok"] = False
         st.session_state["current_user"] = None
 
+    # уже авторизован
     if st.session_state["auth_ok"]:
         return True
 
-    # ---- форма ----
-    with st.container():
-        st.markdown('<div class="auth-box">', unsafe_allow_html=True)
+    st.markdown("### Добро пожаловать в W001-app")
 
-        st.markdown("### Добро пожаловать в W001-app")
+    # три колонки, форма в средней → поля уже
+    col_left, col_center, col_right = st.columns([1, 2, 3])
+
+    with col_center:
+        # дополнительный контейнер, ещё чуть сужаем
+        st.markdown(
+            "<div style='max-width: 480px;'>",
+            unsafe_allow_html=True,
+        )
 
         login = st.text_input("Логин:", key="login")
         password = st.text_input("Пароль:", type="password", key="password")
@@ -61,9 +51,10 @@ def check_auth():
             else:
                 st.error("Неверный логин или пароль")
 
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
     return False
+
 
     return True
 
