@@ -627,10 +627,9 @@ def process_workbook(uploaded_file, cutoff_date: dt.date):
 # =========================
 
 def run():
-    # общий CSS
+
     apply_global_css()
 
-    # единый заголовок в стиле конвертера
     section_header(
         "Расчёт индексации присуждённых сумм",
         "Загрузите Excel-файл со страницами «Основной», "
@@ -638,21 +637,19 @@ def run():
         "после неё индексация не считается."
     )
 
-    # дальше БЕЗ изменений:
-    # today/default_cutoff/cutoff_date/file_uploader/кнопка/try/except
     today = dt.date.today()
     first_day_this_month = today.replace(day=1)
     default_cutoff = first_day_this_month - dt.timedelta(days=1)
 
+    uploaded_file = st.file_uploader(
+        "Загрузите файл формата .xlsx",
+        type=["xlsx"],
+    )
+    
     cutoff_date = st.date_input(
         "Крайняя дата для расчёта",
         value=default_cutoff,
         format="DD.MM.YYYY",
-    )
-
-    uploaded_file = st.file_uploader(
-        "Загрузите файл формата .xlsx",
-        type=["xlsx"],
     )
 
     if uploaded_file is not None:
