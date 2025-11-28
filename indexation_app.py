@@ -6,7 +6,7 @@ import zipfile
 
 import pandas as pd
 import streamlit as st
-from ui_common import apply_global_css   # ← добавили
+from ui_common import apply_global_css, section_header
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
@@ -627,18 +627,19 @@ def process_workbook(uploaded_file, cutoff_date: dt.date):
 # =========================
 
 def run():
-    # общий стиль, такой же как в app.py
+    # общий CSS
     apply_global_css()
 
-    st.title("Расчёт индексации присуждённых сумм")
-
-    st.write(
-        "Загрузите Excel-файл со страницами **«Основной»**, "
-        "**«Платежи»** и **«Индекс»**. "
-        "Крайняя дата расчёта задаётся ниже — после неё индексация не считается."
+    # единый заголовок в стиле конвертера
+    section_header(
+        "Расчёт индексации присуждённых сумм",
+        "Загрузите Excel-файл со страницами «Основной», "
+        "«Платежи» и «Индекс». Крайняя дата расчёта задаётся ниже — "
+        "после неё индексация не считается."
     )
 
-    # крайняя дата по умолчанию — последнее число прошлого месяца
+    # дальше БЕЗ изменений:
+    # today/default_cutoff/cutoff_date/file_uploader/кнопка/try/except
     today = dt.date.today()
     first_day_this_month = today.replace(day=1)
     default_cutoff = first_day_this_month - dt.timedelta(days=1)
