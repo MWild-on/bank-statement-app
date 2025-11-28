@@ -6,6 +6,7 @@ import zipfile
 
 import pandas as pd
 import streamlit as st
+from ui_common import apply_global_css   # ← добавили
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
@@ -626,6 +627,9 @@ def process_workbook(uploaded_file, cutoff_date: dt.date):
 # =========================
 
 def run():
+    # общий стиль, такой же как в app.py
+    apply_global_css()
+
     st.title("Расчёт индексации присуждённых денежных сумм")
 
     st.write(
