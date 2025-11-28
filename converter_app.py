@@ -1,4 +1,5 @@
 import streamlit as st
+from ui_common import section_header
 import pandas as pd
 import re
 from io import BytesIO
@@ -6,6 +7,9 @@ from datetime import datetime
 
 def run():
     #KATE AND DAD IS THE BEST
+
+    # ===== Заголовок раздела (единый стиль) =====
+    section_header("Анализ банковской выписки")
     # ===== Вспомогательные функции =====
     
     def extract_bank_account(text):
@@ -141,8 +145,8 @@ def run():
     
     # ===== Интерфейс Streamlit =====
     
-    st.set_page_config(page_title="Обработка выписки", layout="centered")
-    st.title("📄 Анализ банковской выписки")
+    #st.set_page_config(page_title="Обработка выписки", layout="centered")
+    #st.title("📄 Анализ банковской выписки")
     
     # === История и подсчёты закомментированы ===
     # import os, json ...
