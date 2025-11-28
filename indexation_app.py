@@ -18,8 +18,10 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 
 # Регистрируем обычный и жирный шрифт
-pdfmetrics.registerFont(TTFont("DejaVuSans", str(BASE_DIR / "DejaVuSans.ttf")))
-pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", str(BASE_DIR / "DejaVuSans-Bold.ttf")))
+FONT_DIR = BASE_DIR / "fonts"
+pdfmetrics.registerFont(TTFont("DejaVuSans", str(FONT_DIR / "DejaVuSans.ttf")))
+pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", str(FONT_DIR / "DejaVuSans-Bold.ttf")))
+
 
 # Привязываем семейство, чтобы <b> работало
 pdfmetrics.registerFontFamily(
