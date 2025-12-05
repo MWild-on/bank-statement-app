@@ -4,8 +4,6 @@ import streamlit as st
 import converter_app
 import indexation_app
 import statement_app
-import files_rename
-
 
 from ui_common import apply_global_css  # общий стиль для всех страниц
 
@@ -77,9 +75,8 @@ def main():
     st.sidebar.title("Навигация")
     page = st.sidebar.radio(
         "",
-        ("Конвертер", "Индексация", "Создание выписки", "Переименование файлов"),
+        ("Конвертер", "Индексация", "Создание выписки"),
     )
-
 
     if page == "Конвертер":
         converter_app.run()
@@ -87,8 +84,6 @@ def main():
         indexation_app.run()
     elif page == "Создание выписки":
         statement_app.run()
-    elif page == "Переименование файлов":
-        files_rename.run()
 
 
 if __name__ == "__main__":
