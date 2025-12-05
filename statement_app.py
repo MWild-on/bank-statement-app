@@ -7,6 +7,12 @@ from datetime import datetime, date
 
 import pandas as pd
 import streamlit as st
+
+import os
+import tempfile
+from docx2pdf import convert
+
+
 from docx import Document   # pip install python-docx
 from docx.shared import Pt
 from docx.oxml.ns import qn
@@ -124,6 +130,33 @@ def _fill_template(
     """
     doc = Document(io.BytesIO(template_bytes))
 
+
+
+def _docx_bytes_to_pdf_bytes(docx_bytes: bytes) -> bytes:
+    """
+    Конвертировать DOCX (байты) в PDF (байты) через docx2pdf.
+    Временные файлы удаляются после конвертации.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        docx_path = os.path.join(tmpdir, "tmp.docx")
+        pdf_path = os.path.join(tmpdir, "tmp.pdf")
+
+        # пишем docx во временный файл
+        with open(docx_path, "wb") as f:
+            f.write(docx_bytes)
+
+        # конвертируем во временный pdf
+        convert(docx_path, pdf_path)
+
+        # читаем pdf в память
+        with open(pdf_path, "rb") as f:
+            pdf_bytes = f.read()
+
+    return pdf_bytes
+
+
+
+    
     # ---------- ВЕРХНЯЯ ТАБЛИЦА ----------
     top = doc.tables[0]
 
@@ -368,8 +401,13 @@ def run():
                 continue
 
             docx_bytes = _fill_template(template_bytes, header_data, case_payments)
-            filename = f"{reg_int}_{template_code}.docx"
-            zf.writestr(filename, docx_bytes)
+            
+            # конвертация DOCX -> PDF
+            pdf_bytes = _docx_bytes_to_pdf_bytes(docx_bytes)
+            
+            filename = f"{reg_int}_{template_code}.pdf"
+            zf.writestr(filename, pdf_bytes)
+
 
         # добавляем Excel внутрь того же архива
         zf.writestr("CaseID_with_sums.xlsx", result_excel.getvalue())
