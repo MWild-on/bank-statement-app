@@ -230,7 +230,6 @@ def _build_result_excel(case_df: pd.DataFrame, payments_raw: pd.DataFrame) -> io
 from ui_common import apply_global_css  # убедись, что импорт есть вверху файла
 
 def run():
-    # общий стиль + единый заголовок
     apply_global_css()
 
     section_header(
@@ -244,22 +243,48 @@ def run():
         type=["xlsx"],
     )
 
+    # ----- ИНИЦИАЛИЗАЦИЯ ЗНАЧЕНИЙ ОДИН РАЗ -----
+    if "stmt_date" not in st.session_state:
+        st.session_state["stmt_date"] = date.today()
+
+    if "stmt_time" not in st.session_state:
+        st.session_state["stmt_time"] = datetime.now().time()
+
+    if "period_from" not in st.session_state:
+        today = date.today()
+        st.session_state["period_from"] = today.replace(month=1, day=1)
+
+    if "period_to" not in st.session_state:
+        st.session_state["period_to"] = date.today()
+
     with st.form("stmt_header_form"):
         st.subheader("Параметры шапки выписки")
 
-        today = date.today()
-        now = datetime.now().time()
+        stmt_date = st.date_input(
+            "Дата формирования выписки",
+            key="stmt_date",
+        )
 
-        stmt_date = st.date_input("Дата формирования выписки", value=today)
-        stmt_time = st.time_input("Время формирования выписки", value=now)
+        stmt_time = st.time_input(
+            "Время формирования выписки",
+            key="stmt_time",
+        )
 
-        period_from = st.date_input("Период с", value=today.replace(month=1, day=1))
-        period_to = st.date_input("Период по", value=today)
+        period_from = st.date_input(
+            "Период с",
+            key="period_from",
+        )
+
+        period_to = st.date_input(
+            "Период по",
+            key="period_to",
+        )
 
         submitted = st.form_submit_button("Сформировать выписки")
 
     if not submitted:
         return
+
 
     if uploaded_xlsx is None:
         st.error("Нужно загрузить Excel с листами CaseID и Payments.")
