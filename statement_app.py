@@ -407,7 +407,7 @@ def run():
             
             filename = f"{reg_int}_{template_code}.pdf"
             zf.writestr(filename, pdf_bytes)
-
+ 
 
         # добавляем Excel внутрь того же архива
         zf.writestr("CaseID_with_sums.xlsx", result_excel.getvalue())
