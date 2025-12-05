@@ -8,6 +8,17 @@ from PyPDF2 import PdfReader   # pip install PyPDF2
 
 KEYWORD = "судебный приказ"
 
+def run():
+    st.title("Переименование файлов (Судебные приказы)")
+    folder = st.text_input("Укажите путь к папке:")
+
+    if st.button("Запустить"):
+        if folder and Path(folder).exists():
+            process_root_folder(Path(folder))
+            st.success("Готово. Проверьте CSV-отчёт в указанной папке.")
+        else:
+            st.error("Папка не найдена.")
+
 
 def first_page_contains_keyword(pdf_path: Path, keyword: str) -> bool:
     """Проверка: есть ли на первой странице указанный текст."""
