@@ -6,3 +6,5 @@ pymorphy2-dicts-ru
 reportlab
 python-docx
 docx2pdf
+PyPDF2==3.0.1
+
